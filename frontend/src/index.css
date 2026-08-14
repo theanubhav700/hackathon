@@ -1,0 +1,17 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #05050f;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #05050f; }
+::-webkit-scrollbar-thumb { background: #ff333344; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #ff3333; }
+
+::selection { background: rgba(255,51,51,0.3); }
+
+html { scroll-behavior: smooth; }
