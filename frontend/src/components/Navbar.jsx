@@ -113,39 +113,9 @@ export default function Navbar({ darkMode, toggleDarkMode }) {
           {darkMode ? '☀️' : '🌙'}
         </button>
 
-        {/* Login */}
-        <a
-          href="/login"
-          style={{
-            padding: '9px 22px', borderRadius: 6, fontSize: 13, fontWeight: 600,
-            border: darkMode
-              ? '1px solid rgba(255,255,255,0.2)'
-              : '1px solid rgba(0,0,0,0.18)',
-            color: darkMode ? '#fff' : '#111',
-            textDecoration: 'none', transition: 'all 0.2s',
-            background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = darkMode
-              ? 'rgba(255,255,255,0.12)'
-              : 'rgba(0,0,0,0.1)';
-            e.currentTarget.style.borderColor = darkMode
-              ? 'rgba(255,255,255,0.4)'
-              : 'rgba(0,0,0,0.35)';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = darkMode
-              ? 'rgba(255,255,255,0.05)'
-              : 'rgba(0,0,0,0.04)';
-            e.currentTarget.style.borderColor = darkMode
-              ? 'rgba(255,255,255,0.2)'
-              : 'rgba(0,0,0,0.18)';
-          }}
-        >Login</a>
-
         {/* Book Now */}
         <a
-          href="/customer/book"
+          href="/login/customer"
           style={{
             padding: '9px 22px', borderRadius: 6, fontSize: 13, fontWeight: 700,
             background: 'linear-gradient(135deg,#ff2222,#cc0000)',

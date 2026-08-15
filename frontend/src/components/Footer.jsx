@@ -55,7 +55,7 @@ export default function Footer({ darkMode = true }) {
               letterSpacing: 1, marginBottom: 18, textTransform: 'uppercase',
             }}>Portals</h4>
             {[
-              { label: '👤 Customer Portal', href: '/customer/book' },
+              { label: '👤 Customer Portal', href: '/login/customer' },
               { label: '🚑 Driver Panel',     href: '/driver/dashboard' },
               { label: '🖥️ Admin Dashboard', href: '/admin/dashboard' },
               { label: '🔐 Login',            href: '/login' },

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const itemController = require('../controllers/itemController');
+const Ambulance = require('../models/Ambulance');
 
 // Test route
 router.get('/test', (req, res) => {
@@ -8,6 +9,20 @@ router.get('/test', (req, res) => {
     message: '⚡ API is working!',
     timestamp: new Date().toISOString()
   });
+});
+
+// ── Public: Available ambulances for customers ───────────
+// GET /api/ambulances/available
+// Only ambulances that are Available AND have a driver assigned
+router.get('/ambulances/available', async (req, res) => {
+  try {
+    const ambulances = await Ambulance.find({ status: 'Available', driver: { $ne: null } })
+      .populate('driver', 'fullName mobile driverStatus')
+      .lean();
+    res.json({ success: true, count: ambulances.length, ambulances });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Item CRUD routes

@@ -8,7 +8,11 @@ const API = axios.create({
   },
 });
 
-// ── Items API ──────────────────────────────────────────
+// ── Auth API ───────────────────────────────────────────
+export const registerUser = (data) => API.post('/auth/register', data);
+export const loginUser    = (data) => API.post('/auth/login', data);
+
+
 export const getAllItems  = ()          => API.get('/items');
 export const getItemById = (id)        => API.get(`/items/${id}`);
 export const createItem  = (data)      => API.post('/items', data);

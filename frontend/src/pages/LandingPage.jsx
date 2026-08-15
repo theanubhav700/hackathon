@@ -10,7 +10,7 @@ import ActivityLogPreview from '../components/ActivityLogPreview';
 import Footer from '../components/Footer';
 
 // ── Hero CTA button ──────────────────────────────────────
-function HeroCTA({ href, primary, darkMode, children }) {
+function HeroCTA({ href, primary, darkMode, children, bookRedirect }) {
   return (
     <a
       href={href}
@@ -309,7 +309,7 @@ function HeroSection({ darkMode }) {
 
           {/* CTA buttons */}
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 48 }}>
-            <HeroCTA href="/customer/book" primary darkMode={darkMode}>🚑 Book Ambulance Now</HeroCTA>
+            <HeroCTA href="/login/customer" primary darkMode={darkMode}>🚑 Book Ambulance Now</HeroCTA>
             <HeroCTA href="#how-it-works" darkMode={darkMode}>Watch How It Works →</HeroCTA>
           </div>
 
@@ -374,7 +374,7 @@ export default function LandingPage() {
     <div style={{
       background: darkMode ? '#05050f' : '#f4f4f8',
       minHeight: '100vh',
-      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+      fontFamily: "'Inter', 'Segoe UI', system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif",
       color: darkMode ? '#fff' : '#111',
       overflowX: 'hidden',
       transition: 'background 0.35s ease, color 0.35s ease',

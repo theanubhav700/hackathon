@@ -115,7 +115,8 @@ function PortalCard({ portal, index, darkMode }) {
             ))}
           </div>
 
-          <a href={portal.href} style={{
+          <a href={portal.badge === 'PATIENT' ? '/login/customer' : portal.href}
+            style={{
             display: 'block', textAlign: 'center', padding: '14px', borderRadius: 12,
             background: hovered ? portal.gradient : 'transparent',
             border: `2px solid ${portal.color}`,

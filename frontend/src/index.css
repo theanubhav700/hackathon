@@ -2,7 +2,7 @@
 
 body {
   background: #05050f;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
