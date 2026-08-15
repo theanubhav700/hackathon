@@ -26,13 +26,17 @@ const EMERGENCY_COLORS = {
 
 const navItems = [
   { icon: '📊', label: 'Dashboard',          path: '/driver/dashboard' },
-  { icon: '🚨', label: 'Emergency Requests', path: '/driver/requests' },
-  { icon: '🔔', label: 'Notifications',      path: '/driver/notifications' },
   { icon: '📍', label: 'Pickup Navigation',  path: '/driver/navigation' },
   { icon: '👤', label: 'Patient Info',       path: '/driver/patient' },
+  { icon: '✅', label: 'Patient Received',   path: '/driver/received' },
+  { icon: '❤️', label: 'Patient Telemetry',  path: '/driver/telemetry' },
   { icon: '🏥', label: 'Hospital Info',      path: '/driver/hospital' },
+  { icon: '🔔', label: 'Pre-Alert',          path: '/driver/prealert' },
   { icon: '🗺️', label: 'Live Journey',       path: '/driver/journey' },
-  { icon: '📜', label: 'Trip History',       path: '/driver/history' },
+  { icon: '🛣️', label: 'Route Management',   path: '/driver/routes' },
+  { icon: '🚦', label: 'Traffic & Alerts',   path: '/driver/traffic' },
+  { icon: '🏁', label: 'Complete Trip',      path: '/driver/complete' },
+  { icon: '📋', label: 'Trip History',       path: '/driver/history' },
 ];
 
 function playAlertSound() {
@@ -144,6 +148,12 @@ export default function DriverLayout({ children }) {
     return () => socket.disconnect();
   }, [driver._id]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('resq_token');
+    localStorage.removeItem('resq_user');
+    navigate('/login/driver');
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleAccept = (n) => {
@@ -199,152 +209,241 @@ export default function DriverLayout({ children }) {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#070714', color: '#fff', fontFamily: "'Inter',system-ui,sans-serif" }}>
-      {/* Sidebar */}
-      <aside style={{ width: 260, background: '#0a0a1a', borderRight: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,#ff8800,#cc5500)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🚑</div>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#05050f', color: '#fff', fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
+      {/* ── Sidebar ─────────────────────────────────── */}
+      <aside style={{
+        width: 240, background: 'rgba(255,255,255,0.02)',
+        borderRight: '1px solid rgba(255,255,255,0.07)',
+        display: 'flex', flexDirection: 'column',
+        flexShrink: 0, position: 'sticky', top: 0, height: '100vh',
+        overflowY: 'auto', overflowX: 'hidden',
+      }}>
+        {/* Logo */}
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg,#ff8800,#cc5500)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, boxShadow: '0 0 16px rgba(255,136,0,0.4)' }}>🚑</div>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>ResQ Driver</div>
-            <div style={{ color: '#00cc66', fontSize: 11, fontWeight: 700 }}>● Online & Active</div>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 15, letterSpacing: 1 }}>ResQ</div>
+            <div style={{ color: '#ff8800', fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>DRIVER PANEL</div>
           </div>
         </div>
 
-        <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {navItems.map(item => {
+        {/* Driver chip */}
+        <div style={{ margin: '12px 10px 4px', background: 'rgba(255,136,0,0.08)', border: '1px solid rgba(255,136,0,0.18)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#ff8800,#cc5500)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+            {driver.fullName ? driver.fullName[0].toUpperCase() : 'D'}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: '#fff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{driver.fullName || 'Driver'}</div>
+            <div style={{ color: '#00cc66', fontSize: 10, fontWeight: 600 }}>● Online</div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
+          {navItems.map((item) => {
             const active = location.pathname === item.path;
             return (
-              <Link
-                key={item.path} to={item.path}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12,
-                  textDecoration: 'none', color: active ? '#fff' : 'rgba(255,255,255,0.55)',
-                  background: active ? 'rgba(255,136,0,0.15)' : 'transparent',
-                  border: active ? '1px solid rgba(255,136,0,0.3)' : '1px solid transparent',
-                  fontWeight: active ? 700 : 500, fontSize: 13,
-                }}
+              <Link key={item.path} to={item.path} style={{
+                display: 'flex', alignItems: 'center', gap: 11, padding: '9px 12px',
+                borderRadius: 10, marginBottom: 2, textDecoration: 'none',
+                background: active ? 'rgba(255,136,0,0.12)' : 'transparent',
+                border: active ? '1px solid rgba(255,136,0,0.28)' : '1px solid transparent',
+                transition: 'all 0.2s', overflow: 'hidden', whiteSpace: 'nowrap',
+              }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
               >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-                {item.label === 'Notifications' && unreadCount > 0 && (
-                  <span style={{ marginLeft: 'auto', background: '#ff3333', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>
-                    {unreadCount}
-                  </span>
-                )}
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
+                <span style={{ color: active ? '#ff8800' : 'rgba(255,255,255,0.52)', fontSize: 12.5, fontWeight: active ? 700 : 500 }}>{item.label}</span>
+                {active && <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#ff8800', boxShadow: '0 0 6px #ff8800' }} />}
               </Link>
             );
           })}
         </nav>
 
-        <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{driver.fullName || 'Driver'}</div>
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{driver.email}</div>
+        {/* Logout */}
+        <div style={{ padding: '0 8px 14px' }}>
+          <button onClick={handleLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', background: 'rgba(255,51,51,0.06)', border: '1px solid rgba(255,51,51,0.15)' }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>🚪</span>
+            <span style={{ color: 'rgba(255,100,100,0.7)', fontSize: 12.5, fontWeight: 500 }}>Logout</span>
+          </button>
         </div>
       </aside>
 
-      {/* Main Container */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Top Navbar */}
-        <header style={{ height: 64, borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Portal /</span>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Driver Dashboard</span>
+      {/* ── Main ─────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
+
+        {/* ── TOP NAVBAR ──────────────────────────────── */}
+        <header style={{
+          height: 60, flexShrink: 0,
+          background: 'rgba(255,255,255,0.02)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          display: 'flex', alignItems: 'center',
+          padding: '0 28px', gap: 16,
+          position: 'sticky', top: 0, zIndex: 100,
+        }}>
+          <div style={{ flex: 1 }}>
+            <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>
+              {navItems.find(n => n.path === location.pathname)?.icon}{' '}
+              {navItems.find(n => n.path === location.pathname)?.label || 'Driver Panel'}
+            </span>
           </div>
 
-          {/* Notification Bell */}
+          {/* ── Notification Bell ─────────────────────── */}
           <div ref={notifRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setNotifOpen(!notifOpen)}
-              style={{
-                position: 'relative', width: 40, height: 40, borderRadius: 12,
-                background: unreadCount > 0 ? 'rgba(255,51,51,0.15)' : 'rgba(255,255,255,0.05)',
-                border: unreadCount > 0 ? '1px solid rgba(255,51,51,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                color: '#fff', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              🔔
+            <button onClick={() => setNotifOpen(o => !o)} style={{
+              position: 'relative', width: 42, height: 42, borderRadius: 11,
+              background: unreadCount > 0 ? 'rgba(255,51,51,0.12)' : 'rgba(255,255,255,0.05)',
+              border: unreadCount > 0 ? '1px solid rgba(255,51,51,0.35)' : '1px solid rgba(255,255,255,0.08)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 19, transition: 'all 0.2s', color: '#fff',
+            }}>
+              {unreadCount > 0 ? (
+                <motion.span animate={{ rotate: [-8, 8, -8, 8, 0] }} transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}>🔔</motion.span>
+              ) : '🔔'}
               {unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -4, right: -4, background: '#ff3333',
-                  color: '#fff', width: 18, height: 18, borderRadius: '50%',
-                  fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>{unreadCount}</span>
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  style={{
+                    position: 'absolute', top: -5, right: -5,
+                    background: '#ff3333', color: '#fff',
+                    width: 20, height: 20, borderRadius: '50%',
+                    fontSize: 10, fontWeight: 900,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 0 10px rgba(255,51,51,0.9)',
+                  }}>{unreadCount}</motion.div>
               )}
             </button>
 
+            {/* ── Notification Dropdown ──────────────── */}
             <AnimatePresence>
               {notifOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  initial={{ opacity: 0, y: -10, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
                   style={{
-                    position: 'absolute', top: 'calc(100% + 12px)', right: 0, width: 380,
-                    background: '#0d0d1e', border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 18, padding: '16px', zIndex: 1000,
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(255,51,51,0.15)',
-                    maxHeight: 480, overflowY: 'auto',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <span style={{ fontWeight: 800, fontSize: 14 }}>Emergency Alerts</span>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{notifications.length} Total</span>
+                    position: 'absolute', top: 'calc(100% + 10px)', right: 0,
+                    width: 380, maxHeight: 500, overflowY: 'auto',
+                    background: '#0a0a1a',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 18,
+                    boxShadow: '0 24px 70px rgba(0,0,0,0.8)',
+                    zIndex: 9999,
+                  }}>
+
+                  {/* Header */}
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>🔔 Emergency Alerts</span>
+                    {notifications.length > 0 && (
+                      <button onClick={() => { setNotifications([]); localStorage.removeItem('resq_driver_notifications'); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Clear all</button>
+                    )}
                   </div>
 
-                  {notifications.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-                      No notifications yet
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {notifications.map(n => (
-                        <div
-                          key={n.id}
-                          style={{
-                            background: n.status === 'pending' ? 'rgba(255,51,51,0.08)' : 'rgba(255,255,255,0.03)',
-                            border: n.status === 'pending' ? '1px solid rgba(255,51,51,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 14, padding: '14px',
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                            <span style={{ color: n.color || '#ff4444', fontWeight: 800, fontSize: 13 }}>{n.title}</span>
-                            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>{n.time}</span>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, marginBottom: 10 }}>
-                            <div>👤 <strong>Patient:</strong> {n.customerName}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span>📞 <strong>Phone:</strong> {n.customerPhone}</span>
-                              {n.customerPhone && n.customerPhone !== '—' && (
-                                <a href={`tel:${n.customerPhone}`} style={{ background: 'rgba(0,204,102,0.2)', color: '#00cc66', padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>Call</a>
-                              )}
-                            </div>
-                            <div>📍 <strong>Location:</strong> {n.customerLocation}</div>
-                            {n.message && <div>📝 <strong>Problem:</strong> {n.message}</div>}
-                          </div>
-
-                          {n.status === 'pending' ? (
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button onClick={() => handleReject(n)} style={{ flex: 1, padding: '7px', borderRadius: 8, background: 'rgba(255,51,51,0.1)', border: '1px solid rgba(255,51,51,0.3)', color: '#ff5555', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Decline</button>
-                              <button onClick={() => handleAccept(n)} disabled={accepting === n.id} style={{ flex: 2, padding: '7px', borderRadius: 8, background: 'linear-gradient(135deg,#00cc66,#009944)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 800 }}>Accept & Go</button>
-                            </div>
-                          ) : (
-                            <div style={{ color: n.status === 'accepted' ? '#00cc66' : '#888', fontSize: 11, fontWeight: 700 }}>
-                              ● {n.status === 'accepted' ? 'Accepted & Active' : 'Declined'}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                  {/* Empty */}
+                  {notifications.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '44px 20px' }}>
+                      <div style={{ fontSize: 40, opacity: 0.12, marginBottom: 10 }}>🔔</div>
+                      <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>No notifications yet</div>
+                      <div style={{ color: 'rgba(255,255,255,0.1)', fontSize: 12, marginTop: 4 }}>Emergency requests will appear here</div>
                     </div>
                   )}
+
+                  {/* Notification items */}
+                  {notifications.map((n) => (
+                    <motion.div key={n.id}
+                      initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                      style={{
+                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        background: n.status === 'pending' ? `${n.color}08` : 'transparent',
+                        padding: '16px 20px',
+                      }}>
+
+                      {/* Title row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.status === 'pending' ? n.color : n.status === 'accepted' ? '#00cc66' : '#888', boxShadow: n.status === 'pending' ? `0 0 8px ${n.color}` : 'none', flexShrink: 0 }} />
+                        <span style={{ color: '#fff', fontWeight: 800, fontSize: 13, flex: 1 }}>{n.title}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>{n.time}</span>
+                      </div>
+
+                      {/* Customer details */}
+                      <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${n.color}25`, borderRadius: 12, padding: '12px 14px', marginBottom: n.status === 'pending' ? 12 : 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                          {/* Name */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>👤 Patient</span>
+                            <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{n.customerName || '—'}</span>
+                          </div>
+                          {/* Phone */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>📞 Phone</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{n.customerPhone || '—'}</span>
+                              {n.customerPhone && n.customerPhone !== '—' && (
+                                <a href={`tel:${n.customerPhone}`} onClick={e => e.stopPropagation()} style={{ background: 'rgba(0,204,102,0.15)', border: '1px solid rgba(0,204,102,0.35)', color: '#00cc66', borderRadius: 14, padding: '3px 10px', fontSize: 11, fontWeight: 800, textDecoration: 'none' }}>Call</a>
+                              )}
+                            </div>
+                          </div>
+                          {/* Location */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, flexShrink: 0 }}>📍 Location</span>
+                            <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 600, textAlign: 'right', lineHeight: 1.4 }}>{n.customerLocation || '—'}</span>
+                          </div>
+                          {/* Problem */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>🆘 Problem</span>
+                            <span style={{ color: n.color, fontSize: 12, fontWeight: 700 }}>{n.label}</span>
+                          </div>
+                          {/* Message */}
+                          {n.message && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                              <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, flexShrink: 0 }}>📝 Note</span>
+                              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textAlign: 'right', fontStyle: 'italic' }}>{n.message}</span>
+                            </div>
+                          )}
+                          {/* Distance + ETA */}
+                          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                            <div style={{ flex: 1, background: 'rgba(51,153,255,0.08)', border: '1px solid rgba(51,153,255,0.2)', borderRadius: 8, padding: '5px 8px', textAlign: 'center' }}>
+                              <div style={{ color: '#3399ff', fontWeight: 800, fontSize: 13 }}>{n.distanceKm} km</div>
+                              <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10 }}>Distance</div>
+                            </div>
+                            <div style={{ flex: 1, background: 'rgba(255,170,0,0.08)', border: '1px solid rgba(255,170,0,0.2)', borderRadius: 8, padding: '5px 8px', textAlign: 'center' }}>
+                              <div style={{ color: '#ffaa00', fontWeight: 800, fontSize: 13 }}>{n.etaMin} min</div>
+                              <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10 }}>ETA</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Accept / Reject */}
+                      {n.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => handleReject(n)} style={{ flex: 1, padding: '9px', borderRadius: 9, cursor: 'pointer', background: 'rgba(255,60,60,0.1)', border: '1px solid rgba(255,60,60,0.3)', color: '#ff5555', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>✕ Reject</button>
+                          <button onClick={() => handleAccept(n)} disabled={accepting === n.id} style={{ flex: 2, padding: '9px', borderRadius: 9, cursor: accepting ? 'not-allowed' : 'pointer', background: accepting === n.id ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#00cc66,#009944)', border: 'none', color: '#fff', fontWeight: 800, fontSize: 13, fontFamily: 'inherit', boxShadow: accepting === n.id ? 'none' : '0 4px 14px rgba(0,204,102,0.35)' }}>
+                            {accepting === n.id ? '⏳ Accepting...' : '✓ Accept & Navigate'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Status badge */}
+                      {(n.status === 'accepted' || n.status === 'rejected') && (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: n.status === 'accepted' ? 'rgba(0,204,102,0.1)' : 'rgba(120,120,120,0.1)', border: `1px solid ${n.status === 'accepted' ? 'rgba(0,204,102,0.3)' : 'rgba(120,120,120,0.2)'}`, color: n.status === 'accepted' ? '#00cc66' : '#888', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, marginTop: 2 }}>
+                          {n.status === 'accepted' ? '✅ Accepted — Navigating' : '✕ Rejected'}
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
-          {children}
+        {/* ── Page content ─────────────────────────────── */}
+        <main style={{ flex: 1, overflow: 'auto' }}>
+          <div style={{ padding: '28px 32px' }}>
+            {children}
+          </div>
         </main>
       </div>
     </div>

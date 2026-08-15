@@ -122,7 +122,7 @@ function MapPreview({ coords, locationName }) {
     <div style={{
       marginTop: 12, borderRadius: 12, overflow: 'hidden',
       border: '1px solid rgba(51,153,255,0.25)',
-      background: 'rgba(0,0,0,0.4)', position: 'relative', height: 160,
+      background: 'rgba(0,0,0,0.4)', position: 'relative', height: 260,
     }}>
       <iframe title="Location Map" width="100%" height="100%" frameBorder="0" scrolling="no" src={osmUrl} style={{ border: 0, opacity: 0.85 }} />
       <div style={{
@@ -351,8 +351,8 @@ export default function BookAmbulance() {
           id: a._id,
           ambLat: coords ? coords[0] : 28.6139,
           ambLon: coords ? coords[1] : 77.2090,
-          distance: '1.2 km',
-          eta: '4 min',
+          distance: '2 m',
+          eta: '2 sec',
           driver: a.driver?.fullName || 'Assigned Driver',
           driverPhone: a.driver?.mobile || '9876543210',
           driverId: a.driver?._id || a.driver || null,
@@ -500,7 +500,7 @@ export default function BookAmbulance() {
         )}
       </AnimatePresence>
 
-      <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div>
           <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 28, margin: '0 0 6px' }}>Book an Ambulance</h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, margin: 0 }}>
@@ -558,9 +558,9 @@ export default function BookAmbulance() {
           </motion.div>
         ) : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'stretch' }}>
               {/* Step 1: Location */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '24px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '28px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#ff3333', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>1</div>
                   <h3 style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: 0 }}>Pickup Location</h3>
@@ -590,7 +590,7 @@ export default function BookAmbulance() {
               </div>
 
               {/* Step 2: Emergency Details */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '24px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '28px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#ff8800', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>2</div>
                   <h3 style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: 0 }}>Emergency Problem / Details</h3>
@@ -605,7 +605,7 @@ export default function BookAmbulance() {
                     value={message}
                     onChange={e => setMessage(e.target.value)}
                     placeholder="Describe problem (e.g., patient condition, floor number, symptoms)..."
-                    rows={2}
+                    rows={5}
                     style={{
                       width: '100%', background: 'rgba(255,255,255,0.05)',
                       border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
