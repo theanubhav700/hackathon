@@ -1,32 +1,29 @@
-const express    = require('express');
-const mongoose   = require('mongoose');
-const cors       = require('cors');
-const http       = require('http');
-const { Server } = require('socket.io');
 require('dotenv').config();
+const express  = require('express');
+const http     = require('http');
+const { Server } = require('socket.io');
+const cors     = require('cors');
+const mongoose = require('mongoose');
 
 const app    = express();
 const server = http.createServer(app);
 
-// ── Socket.io setup ─────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
-// ── Active trips store (in-memory) ──────────────────────
-const activeTrips   = new Map();
-// ── Online drivers store ─────────────────────────────────
-const onlineDrivers = new Map();
-// ── Active bookings store (pending driver acceptance) ────
-// bookingId -> { ...bookingData, customerSocketId, assignedDriverId }
-const pendingBookings = new Map();
+// In-memory active stores
+const activeTrips     = new Map(); // tripId -> trip object
+const onlineDrivers   = new Map(); // driverId -> { socketId, driverId, driverName, ambulanceId, lat, lon, status }
+const pendingBookings = new Map(); // bookingId -> full booking object
 
-// ── Haversine helper ─────────────────────────────────────
+// Haversine distance formula (km)
 function haversineKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 2.0;
   const R    = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -36,7 +33,7 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Simulate ambulance moving toward patient ─────────────
+// Simulate ambulance moving toward patient
 function simulateMovement(tripId) {
   const trip = activeTrips.get(tripId);
   if (!trip || trip.status === 'arrived') return;
@@ -47,70 +44,85 @@ function simulateMovement(tripId) {
   const dist = Math.sqrt(dLat * dLat + dLon * dLon);
 
   if (dist < 0.0005) {
-    // Arrived at patient
-    trip.status    = 'arrived';
-    trip.eta       = 0;
+    trip.status     = 'arrived';
+    trip.eta        = 0;
     trip.distanceKm = 0;
     activeTrips.set(tripId, trip);
     io.to(tripId).emit('trip:update', { ...trip, tripId });
-    io.to(tripId).emit('trip:arrived', { tripId, message: '🚑 Ambulance has arrived at your location!' });
+    io.to(tripId).emit('trip:arrived', { tripId, message: 'Ambulance has arrived at your location!' });
     return;
   }
 
-  // Move ambulance one step closer
   const ratio = Math.min(STEP / dist, 1);
   trip.ambulanceLat += dLat * ratio;
   trip.ambulanceLon += dLon * ratio;
   trip.distanceKm    = haversineKm(trip.ambulanceLat, trip.ambulanceLon, trip.patientLat, trip.patientLon);
-  trip.eta           = Math.max(0, Math.round(trip.distanceKm / 0.5)); // 30 km/h
+  trip.eta           = Math.max(0, Math.round(trip.distanceKm / 0.5));
   activeTrips.set(tripId, trip);
 
-  // Broadcast to all sockets in this trip room
   io.to(tripId).emit('trip:update', { ...trip, tripId });
-
-  // Schedule next tick (every 2 seconds)
   setTimeout(() => simulateMovement(tripId), 2000);
 }
 
-// ── Socket.io connection handler ─────────────────────────
+// Socket.io connection handler
 io.on('connection', (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id}`);
+  console.log(`Socket connected: ${socket.id}`);
 
-  // ── Driver registers ──────────────────────────────────
+  // Driver registers
   socket.on('driver:register', ({ driverId, driverName, ambulanceId }) => {
     if (driverId) {
       const existing = onlineDrivers.get(driverId) || {};
-      onlineDrivers.set(driverId, {
+      const updatedInfo = {
         ...existing,
         socketId:    socket.id,
-        driverId,
-        // Persist name/ambulanceId from register if not yet set via location_broadcast
+        driverId:    driverId.toString(),
         driverName:  driverName  || existing.driverName  || 'Driver',
-        ambulanceId: ambulanceId || existing.ambulanceId || '—',
-        status:      existing.status || 'Online',
-      });
-      socket.data.driverId = driverId;
-      console.log(`🚑 Driver registered: ${driverId} (${driverName || existing.driverName || '?'})`);
+        ambulanceId: ambulanceId || existing.ambulanceId || 'AMB-01',
+        status:      'Online',
+      };
+      onlineDrivers.set(driverId.toString(), updatedInfo);
+      socket.data.driverId = driverId.toString();
+
+      // Join individual driver room + global drivers room
+      socket.join(`driver:${driverId}`);
+      socket.join('drivers');
+      console.log(`Driver registered: ${driverId} (${updatedInfo.driverName}) joined rooms`);
+
+      // Push all active pending bookings to this driver
+      for (const [bId, booking] of pendingBookings.entries()) {
+        socket.emit('booking:request', booking);
+      }
     }
   });
 
-  // ── Customer registers (to receive callbacks) ─────────
+  // Customer registers
   socket.on('customer:register', ({ customerId }) => {
     if (customerId) {
       socket.data.customerId = customerId;
       socket.join(`customer:${customerId}`);
-      console.log(`👤 Customer registered: ${customerId}`);
+      console.log(`Customer registered: ${customerId}`);
     }
   });
 
-  // ── Driver GPS broadcast ──────────────────────────────
+  // Driver GPS broadcast
   socket.on('driver:location_broadcast', ({ driverId, driverName, ambulanceId, lat, lon, status }) => {
-    onlineDrivers.set(driverId, {
-      socketId: socket.id, driverId, driverName, ambulanceId,
-      lat, lon, status, updatedAt: Date.now(),
+    if (!driverId) return;
+    const dIdStr = driverId.toString();
+    onlineDrivers.set(dIdStr, {
+      socketId: socket.id,
+      driverId: dIdStr,
+      driverName: driverName || 'Driver',
+      ambulanceId: ambulanceId || 'AMB-01',
+      lat: Number(lat) || 28.6139,
+      lon: Number(lon) || 77.2090,
+      status: status || 'Online',
+      updatedAt: Date.now(),
     });
+    socket.join(`driver:${dIdStr}`);
+    socket.join('drivers');
+
     for (const [tripId, trip] of activeTrips.entries()) {
-      if (trip.driverId === driverId) {
+      if (trip.driverId === dIdStr) {
         trip.ambulanceLat = lat;
         trip.ambulanceLon = lon;
         trip.distanceKm   = haversineKm(lat, lon, trip.patientLat, trip.patientLon);
@@ -121,180 +133,160 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── Driver status update ──────────────────────────────
+  // Driver status update
   socket.on('driver:status_update', ({ driverId, status }) => {
-    const d = onlineDrivers.get(driverId);
-    if (d) onlineDrivers.set(driverId, { ...d, status });
+    if (!driverId) return;
+    const d = onlineDrivers.get(driverId.toString());
+    if (d) onlineDrivers.set(driverId.toString(), { ...d, status });
   });
 
-  // ── Customer creates booking ──────────────────────────
+  // Customer creates booking
   socket.on('booking:new', (bookingData) => {
-    const { customerLat, customerLon, customerId } = bookingData;
-
-    // Save customer socketId for callback
+    console.log('Incoming booking request:', bookingData);
+    const bookingId = bookingData.bookingId || ('BK-' + Date.now());
     const customerSocketId = socket.id;
 
-    // Find nearest ONLINE (not Busy, not Offline) driver with GPS
-    let nearestDriver = null;
-    let minDist = Infinity;
-    for (const [driverId, driver] of onlineDrivers.entries()) {
-      if (driver.status !== 'Online' || !driver.lat || !driver.lon) continue;
-      const dist = haversineKm(customerLat, customerLon, driver.lat, driver.lon);
-      if (dist < minDist) { minDist = dist; nearestDriver = { ...driver, driverId, distanceKm: dist }; }
+    // Calculate distance & ETA if coordinates provided
+    let distanceKm = '2.0';
+    let etaMin = 3;
+    if (bookingData.customerLat && bookingData.customerLon && bookingData.driverLat && bookingData.driverLon) {
+      const d = haversineKm(bookingData.customerLat, bookingData.customerLon, bookingData.driverLat, bookingData.driverLon);
+      distanceKm = d.toFixed(2);
+      etaMin = Math.max(1, Math.round(d / 0.5));
     }
 
-    if (nearestDriver) {
-      const etaMin = Math.max(1, Math.round(nearestDriver.distanceKm / 0.5));
-      const fullPayload = {
-        ...bookingData,
-        customerSocketId,
-        driverLat:    nearestDriver.lat,
-        driverLon:    nearestDriver.lon,
-        distanceKm:   nearestDriver.distanceKm.toFixed(2),
-        etaMin,
-        assignedDriverId: nearestDriver.driverId,
-      };
+    const fullPayload = {
+      ...bookingData,
+      bookingId,
+      customerSocketId,
+      customerId: bookingData.customerId || 'customer',
+      customerName: bookingData.customerName || 'Customer',
+      customerPhone: bookingData.customerPhone || '—',
+      customerLocation: bookingData.customerLocation || 'Location detected',
+      customerLat: Number(bookingData.customerLat) || 28.5355,
+      customerLon: Number(bookingData.customerLon) || 77.3910,
+      emergencyType: bookingData.emergencyType || 'Emergency',
+      problem: bookingData.problem || bookingData.emergencyType || 'Emergency',
+      message: bookingData.message || '',
+      ambulanceId: bookingData.ambulanceId || 'AMB-01',
+      ambulanceType: bookingData.ambulanceType || 'Advanced Life Support',
+      driverId: bookingData.driverId ? bookingData.driverId.toString() : null,
+      driverName: bookingData.driverName || 'Driver',
+      distanceKm: bookingData.distanceKm || distanceKm,
+      etaMin: bookingData.etaMin || etaMin,
+      status: 'Pending',
+      createdAt: new Date().toISOString(),
+    };
 
-      // Store pending booking
-      pendingBookings.set(bookingData.bookingId, {
-        ...fullPayload,
-        customerSocketId,
-      });
+    // Store pending booking
+    pendingBookings.set(bookingId, fullPayload);
 
-      // Send FULL notification to driver
-      io.to(nearestDriver.socketId).emit('booking:request', fullPayload);
-
-      console.log(`📨 Booking ${bookingData.bookingId} → Driver ${nearestDriver.driverId} (${nearestDriver.distanceKm.toFixed(2)} km)`);
-
-      // Tell customer → driver found, waiting for accept
-      socket.emit('booking:driver_found', {
-        bookingId:   bookingData.bookingId,
-        driverName:  nearestDriver.driverName,
-        ambulanceId: nearestDriver.ambulanceId,
-        distanceKm:  nearestDriver.distanceKm.toFixed(2),
-        etaMin,
-        message:     `🚑 Driver ${nearestDriver.driverName} has been notified. Waiting for acceptance...`,
-      });
-    } else {
-      socket.emit('booking:no_driver', {
-        bookingId: bookingData.bookingId,
-        message:   '⚠️ No drivers available right now. Please try again shortly.',
-      });
-      console.log(`⚠️ No online driver for booking ${bookingData.bookingId}`);
+    // 1. Direct notify to selected driver if provided
+    if (fullPayload.driverId) {
+      io.to(`driver:${fullPayload.driverId}`).emit('booking:request', fullPayload);
+      const targetDriver = onlineDrivers.get(fullPayload.driverId);
+      if (targetDriver?.socketId) {
+        io.to(targetDriver.socketId).emit('booking:request', fullPayload);
+      }
     }
+
+    // 2. Broadcast to ALL drivers in drivers room & broadcast to all connected driver sockets
+    io.to('drivers').emit('booking:request', fullPayload);
+    io.emit('booking:request', fullPayload);
+
+    console.log(`Booking ${bookingId} dispatched to driver(s)`);
+
+    // 3. Confirm to customer
+    socket.emit('booking:driver_found', {
+      bookingId,
+      driverName:  fullPayload.driverName,
+      ambulanceId: fullPayload.ambulanceId,
+      distanceKm:  fullPayload.distanceKm,
+      etaMin:      fullPayload.etaMin,
+      message:     `Driver ${fullPayload.driverName} has been notified. Waiting for acceptance...`,
+    });
   });
 
-  // ── Driver ACCEPTS booking ────────────────────────────
+  // Driver ACCEPTS booking
   socket.on('booking:accept', ({ bookingId, driverId, driverLat, driverLon }) => {
-    const driver  = onlineDrivers.get(driverId);
+    const driver  = onlineDrivers.get(driverId ? driverId.toString() : '') || {};
     const booking = pendingBookings.get(bookingId);
 
-    if (!booking) {
-      // Booking already handled (e.g. accepted by another driver)
-      socket.emit('booking:accept_confirmed', { bookingId, message: 'Booking already assigned.' });
-      return;
-    }
+    console.log(`Driver ${driverId} ACCEPTED booking ${bookingId}`);
 
-    console.log(`✅ Driver ${driverId} ACCEPTED booking ${bookingId}`);
+    const finalLat = driverLat || driver?.lat || (booking ? booking.customerLat + 0.02 : 28.555);
+    const finalLon = driverLon || driver?.lon || (booking ? booking.customerLon + 0.02 : 77.411);
 
-    // Update driver status to Busy
-    if (driver) onlineDrivers.set(driverId, { ...driver, status: 'Busy' });
-
-    // Remove from pending
-    pendingBookings.delete(bookingId);
-
-    // Use live GPS from accept payload, fall back to last known broadcast coords
-    const finalLat = driverLat ?? driver?.lat;
-    const finalLon = driverLon ?? driver?.lon;
-    const distKm   = (finalLat != null && finalLon != null)
+    const distKm = booking?.customerLat && booking?.customerLon
       ? haversineKm(finalLat, finalLon, booking.customerLat, booking.customerLon).toFixed(2)
-      : booking.distanceKm || '—';
-    const etaMin   = booking.etaMin || Math.max(1, Math.round(parseFloat(distKm) / 0.5));
+      : booking?.distanceKm || '2.0';
+    const etaMin = booking?.etaMin || Math.max(1, Math.round(parseFloat(distKm) / 0.5));
 
     const acceptPayload = {
       bookingId,
       driverId,
-      driverName:   driver?.driverName  || 'Driver',
-      ambulanceId:  driver?.ambulanceId || '—',
+      driverName:   driver?.driverName  || booking?.driverName || 'Driver',
+      ambulanceId:  driver?.ambulanceId || booking?.ambulanceId || 'AMB-01',
       driverLat:    finalLat,
       driverLon:    finalLon,
       etaMin,
       distanceKm:   distKm,
-      message:      `✅ ${driver?.driverName || 'Driver'} has accepted your request and is on the way!`,
+      message:      `${driver?.driverName || 'Driver'} has accepted your request and is on the way!`,
     };
+
+    if (booking) {
+      booking.status = 'Accepted';
+      pendingBookings.set(bookingId, { ...booking, ...acceptPayload, status: 'Accepted' });
+    }
 
     // Notify customer directly via their socket ID
     if (booking?.customerSocketId) {
       io.to(booking.customerSocketId).emit('booking:accepted', acceptPayload);
     }
-    // Also notify via persistent customer room (survives reconnects)
+    // Also notify via persistent customer room
     if (booking?.customerId) {
       io.to(`customer:${booking.customerId}`).emit('booking:accepted', acceptPayload);
     }
     // Confirm back to driver
     socket.emit('booking:accept_confirmed', { bookingId, message: 'You have accepted the booking.' });
+    // Broadcast status change
+    io.emit('booking:status_change', { bookingId, status: 'Accepted' });
   });
 
-  // ── Driver REJECTS booking ────────────────────────────
+  // Driver REJECTS booking
   socket.on('booking:reject', ({ bookingId, driverId }) => {
     const booking = pendingBookings.get(bookingId);
-    const driver  = onlineDrivers.get(driverId);
+    const driver  = onlineDrivers.get(driverId ? driverId.toString() : '');
 
-    console.log(`❌ Driver ${driverId} REJECTED booking ${bookingId}`);
+    console.log(`Driver ${driverId} REJECTED booking ${bookingId}`);
     pendingBookings.delete(bookingId);
 
     const rejectPayload = {
       bookingId,
-      message: `❌ Driver ${driver?.driverName || 'Driver'} declined. Looking for another driver...`,
+      message: `Driver ${driver?.driverName || 'Driver'} declined. Looking for another driver...`,
     };
 
-    // Notify customer
     if (booking?.customerSocketId) {
       io.to(booking.customerSocketId).emit('booking:rejected', rejectPayload);
     }
     if (booking?.customerId) {
       io.to(`customer:${booking.customerId}`).emit('booking:rejected', rejectPayload);
     }
-
-    // Try next nearest driver
-    if (booking) {
-      const { customerLat, customerLon, customerSocketId } = booking;
-      let nextDriver = null;
-      let minDist = Infinity;
-      for (const [dId, d] of onlineDrivers.entries()) {
-        if (dId === driverId || d.status !== 'Online' || !d.lat || !d.lon) continue;
-        const dist = haversineKm(customerLat, customerLon, d.lat, d.lon);
-        if (dist < minDist) { minDist = dist; nextDriver = { ...d, driverId: dId, distanceKm: dist }; }
-      }
-      if (nextDriver) {
-        const etaMin = Math.max(1, Math.round(nextDriver.distanceKm / 0.5));
-        const newPayload = { ...booking, driverLat: nextDriver.lat, driverLon: nextDriver.lon, distanceKm: nextDriver.distanceKm.toFixed(2), etaMin, assignedDriverId: nextDriver.driverId };
-        pendingBookings.set(bookingId, { ...newPayload, customerSocketId });
-        io.to(nextDriver.socketId).emit('booking:request', newPayload);
-        io.to(customerSocketId).emit('booking:driver_found', {
-          bookingId, driverName: nextDriver.driverName, ambulanceId: nextDriver.ambulanceId,
-          distanceKm: nextDriver.distanceKm.toFixed(2), etaMin,
-          message: `🔄 Redirected to ${nextDriver.driverName}. ETA: ${etaMin} min`,
-        });
-      } else {
-        io.to(customerSocketId).emit('booking:no_driver', { bookingId, message: '⚠️ No more drivers available right now.' });
-      }
-    }
   });
 
-  // ── Customer joins trip room (live tracking) ──────────
+  // Customer joins trip room (live tracking)
   socket.on('trip:join', ({ tripId }) => {
     socket.join(tripId);
     const trip = activeTrips.get(tripId);
     if (trip) socket.emit('trip:update', { ...trip, tripId });
   });
 
-  // ── Start trip ────────────────────────────────────────
+  // Start trip
   socket.on('trip:start', ({ tripId, patientLat, patientLon, ambulanceLat, ambulanceLon, driverName, ambulanceId, driverId }) => {
     const distanceKm = haversineKm(ambulanceLat, ambulanceLon, patientLat, patientLon);
     const trip = {
       tripId, patientLat, patientLon, ambulanceLat, ambulanceLon,
-      driverName: driverName || 'Driver', ambulanceId: ambulanceId || '—',
+      driverName: driverName || 'Driver', ambulanceId: ambulanceId || 'AMB-01',
       driverId, distanceKm,
       eta: Math.max(1, Math.round(distanceKm / 0.5)), status: 'en_route',
     };
@@ -304,7 +296,7 @@ io.on('connection', (socket) => {
     io.to(tripId).emit('trip:update', { ...trip, tripId });
   });
 
-  // ── Driver manual GPS update during trip ──────────────
+  // Driver manual GPS update during trip
   socket.on('driver:location', ({ tripId, lat, lon }) => {
     const trip = activeTrips.get(tripId);
     if (!trip) return;
@@ -319,16 +311,8 @@ io.on('connection', (socket) => {
     if (cb) cb(activeTrips.get(tripId) || null);
   });
 
-  // ── Disconnect ────────────────────────────────────────
   socket.on('disconnect', () => {
-    console.log(`🔌 Disconnected: ${socket.id}`);
-    for (const [dId, d] of onlineDrivers.entries()) {
-      if (d.socketId === socket.id) {
-        onlineDrivers.delete(dId);
-        console.log(`🚑 Driver offline: ${dId}`);
-        break;
-      }
-    }
+    console.log(`Socket disconnected: ${socket.id}`);
   });
 });
 
@@ -338,15 +322,15 @@ app.set('activeTrips', activeTrips);
 app.set('onlineDrivers', onlineDrivers);
 app.set('pendingBookings', pendingBookings);
 
-// ── Express Middleware ───────────────────────────────────
+// Express Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
   credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Routes ───────────────────────────────────────────────
+// Routes
 const apiRoutes   = require('./routes/api');
 const authRoutes  = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
@@ -357,32 +341,27 @@ app.use('/api/admin', adminRoutes);
 // Health check
 app.get('/', (req, res) => {
   res.json({
-    message: '🔴 ResQ Backend is LIVE',
+    message: 'ResQ Backend is LIVE',
     status: 'running',
     socket: 'enabled',
     activeTrips: activeTrips.size,
-    database: mongoose.connection.readyState === 1 ? '✅ Connected' : '❌ Disconnected',
+    pendingBookings: pendingBookings.size,
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
   });
 });
 
-// ── MongoDB + Server start ───────────────────────────────
-const PORT     = process.env.PORT || 5000;
+const PORT      = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/hackathon';
 
 mongoose.connect(MONGO_URI)
   .then(() => {
-    console.log('✅ MongoDB Connected Successfully');
+    console.log('MongoDB Connected Successfully');
     server.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`🔌 Socket.io ready`);
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Socket.io ready`);
     });
   })
   .catch((err) => {
-    console.error('❌ MongoDB Connection Failed:', err.message);
+    console.error('MongoDB Connection Failed:', err.message);
     process.exit(1);
   });
-
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err.message);
-  process.exit(1);
-});

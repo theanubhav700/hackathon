@@ -1,22 +1,18 @@
 import { useState } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-
 const navItems = [
   { icon: '📊', label: 'Dashboard',            path: '/admin/dashboard' },
   { icon: '🚨', label: 'Active Emergencies',   path: '/admin/emergencies' },
   { icon: '🚑', label: 'Ambulance Mgmt',       path: '/admin/ambulances' },
   { icon: '👨‍✈️', label: 'Driver Mgmt',          path: '/admin/drivers' },
   { icon: '👤', label: 'Customer Mgmt',        path: '/admin/customers' },
-  { icon: '🗺️', label: 'Live Map',             path: '/admin/map' },
   { icon: '📋', label: 'Activity Logs',        path: '/admin/logs' },
   { icon: '📈', label: 'Analytics',            path: '/admin/analytics' },
-  { icon: '⚙️', label: 'System Mgmt',          path: '/admin/system' },
 ];
 
 export default function AdminLayout({ children }) {
   const location  = useLocation();
   const navigate  = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('resq_token');
@@ -32,18 +28,17 @@ export default function AdminLayout({ children }) {
     }}>
       {/* ── Sidebar ─────────────────────────────────── */}
       <aside style={{
-        width: collapsed ? 68 : 240,
+        width: 240,
         background: 'rgba(255,255,255,0.02)',
         borderRight: '1px solid rgba(255,255,255,0.07)',
         display: 'flex', flexDirection: 'column',
-        transition: 'width 0.3s ease',
         flexShrink: 0, position: 'sticky', top: 0, height: '100vh',
         overflow: 'hidden',
       }}>
 
         {/* Logo */}
         <div style={{
-          padding: collapsed ? '20px 16px' : '20px',
+          padding: '20px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
@@ -53,12 +48,10 @@ export default function AdminLayout({ children }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 18, boxShadow: '0 0 16px rgba(51,153,255,0.4)',
           }}>🖥️</div>
-          {!collapsed && (
-            <div>
-              <div style={{ color: '#fff', fontWeight: 900, fontSize: 15, letterSpacing: 1 }}>ResQ</div>
-              <div style={{ color: '#3399ff', fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>ADMIN PANEL</div>
-            </div>
-          )}
+          <div>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 15, letterSpacing: 1 }}>ResQ</div>
+            <div style={{ color: '#3399ff', fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>ADMIN PANEL</div>
+          </div>
         </div>
 
         {/* Nav */}
@@ -79,28 +72,17 @@ export default function AdminLayout({ children }) {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
               >
                 <span style={{ fontSize: 17, flexShrink: 0 }}>{item.icon}</span>
-                {!collapsed && (
-                  <span style={{
-                    color: active ? '#3399ff' : 'rgba(255,255,255,0.55)',
-                    fontSize: 13, fontWeight: active ? 700 : 500,
-                  }}>{item.label}</span>
-                )}
-                {active && !collapsed && (
+                <span style={{
+                  color: active ? '#3399ff' : 'rgba(255,255,255,0.55)',
+                  fontSize: 13, fontWeight: active ? 700 : 500,
+                }}>{item.label}</span>
+                {active && (
                   <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#3399ff', boxShadow: '0 0 6px #3399ff' }} />
                 )}
               </Link>
             );
           })}
         </nav>
-
-        {/* Collapse toggle */}
-        <div style={{ padding: '10px 8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <button onClick={() => setCollapsed(c => !c)} style={{
-            width: '100%', padding: '9px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
-            color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 15,
-          }}>{collapsed ? '→' : '← Collapse'}</button>
-        </div>
 
         {/* Logout */}
         <div style={{ padding: '0 8px 16px' }}>
@@ -111,7 +93,7 @@ export default function AdminLayout({ children }) {
             transition: 'all 0.2s',
           }}>
             <span style={{ fontSize: 17, flexShrink: 0 }}>🚪</span>
-            {!collapsed && <span style={{ color: 'rgba(255,100,100,0.7)', fontSize: 13, fontWeight: 500 }}>Logout</span>}
+            <span style={{ color: 'rgba(255,100,100,0.7)', fontSize: 13, fontWeight: 500 }}>Logout</span>
           </button>
         </div>
       </aside>

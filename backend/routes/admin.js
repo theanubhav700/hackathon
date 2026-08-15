@@ -22,6 +22,17 @@ router.get('/customers', protect, adminOnly, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/customers/:id
+router.delete('/customers/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const customer = await User.findOneAndDelete({ _id: req.params.id, role: 'customer' });
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+    res.json({ success: true, message: 'Customer deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ═══════════════════════════════════════
 //  AMBULANCES
 // ═══════════════════════════════════════

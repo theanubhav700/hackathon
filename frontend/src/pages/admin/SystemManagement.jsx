@@ -10,10 +10,8 @@ const sections = [
   { icon: '📋', title: 'Activity Logs',       desc: 'Full system event history', link: '/admin/logs',       color: '#ff8800' },
 ];
 
-const dangerActions = [
-  { icon: '🗑️', label: 'Clear All Logs',        desc: 'Permanently delete all activity logs' },
-  { icon: '🔄', label: 'Reset Trip Counter',    desc: 'Reset daily trip statistics to zero' },
-];
+const dangerActions = [];
+
 
 export default function SystemManagement() {
   const admin = JSON.parse(localStorage.getItem('resq_user') || '{}');
@@ -65,30 +63,6 @@ export default function SystemManagement() {
         ))}
       </div>
 
-      {/* Danger zone */}
-      <div style={{ background: 'rgba(255,51,51,0.04)', border: '1px solid rgba(255,51,51,0.15)', borderRadius: 16, padding: '24px' }}>
-        <h3 style={{ color: '#ff4444', fontWeight: 800, fontSize: 14, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          ⚠️ Danger Zone
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {dangerActions.map(action => (
-            <div key={action.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 18 }}>{action.icon}</span>
-                <div>
-                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{action.label}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{action.desc}</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setConfirmAction(action.label)}
-                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(255,51,51,0.3)', background: 'rgba(255,51,51,0.08)', color: '#ff4444', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                Run
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Confirm dialog */}
       {confirmAction && (

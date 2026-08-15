@@ -120,9 +120,12 @@ export default function CustomerManagement() {
   const [error, setError]         = useState('');
   const [search, setSearch]       = useState('');
   const [selected, setSelected]   = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // customer obj to delete
+  const [deleting, setDeleting]           = useState(false);
+
+  const token = localStorage.getItem('resq_token');
 
   useEffect(() => {
-    const token = localStorage.getItem('resq_token');
     axios.get(`${API_BASE}/admin/customers`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -136,6 +139,22 @@ export default function CustomerManagement() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      await axios.delete(`${API_BASE}/admin/customers/${confirmDelete._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomers(prev => prev.filter(c => c._id !== confirmDelete._id));
+      setConfirmDelete(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = customers.filter(c => {
     const q = search.toLowerCase();
@@ -232,12 +251,12 @@ export default function CustomerManagement() {
         {/* Column headers */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '2fr 1.6fr 1fr 0.8fr 0.8fr 1fr 0.5fr',
+          gridTemplateColumns: '2fr 1.6fr 1fr 0.8fr 0.8fr 1fr 1fr',
           padding: '14px 24px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           background: 'rgba(255,255,255,0.02)',
         }}>
-          {['Name', 'Email', 'Mobile', 'Blood', 'Gender', 'Joined', ''].map(h => (
+          {['Name', 'Email', 'Mobile', 'Blood', 'Gender', 'Joined', 'Actions'].map(h => (
             <span key={h} style={colStyle}>{h}</span>
           ))}
         </div>
@@ -272,7 +291,7 @@ export default function CustomerManagement() {
         {!loading && !error && filtered.map((c, i) => (
           <div key={c._id} style={{
             display: 'grid',
-            gridTemplateColumns: '2fr 1.6fr 1fr 0.8fr 0.8fr 1fr 0.5fr',
+            gridTemplateColumns: '2fr 1.6fr 1fr 0.8fr 0.8fr 1fr 1fr',
             padding: '14px 24px', alignItems: 'center',
             borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
             transition: 'background 0.15s',
@@ -302,16 +321,28 @@ export default function CustomerManagement() {
             {/* Joined */}
             <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{joined(c.createdAt)}</span>
 
-            {/* View button */}
-            <button onClick={() => setSelected(c)} style={{
-              background: 'rgba(51,153,255,0.1)', border: '1px solid rgba(51,153,255,0.25)',
-              color: '#3399ff', borderRadius: 8, padding: '5px 12px',
-              cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
-              transition: 'all 0.2s',
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(51,153,255,0.22)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(51,153,255,0.1)'}
-            >View</button>
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setSelected(c)} style={{
+                background: 'rgba(51,153,255,0.1)', border: '1px solid rgba(51,153,255,0.25)',
+                color: '#3399ff', borderRadius: 8, padding: '5px 12px',
+                cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                transition: 'all 0.2s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(51,153,255,0.22)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(51,153,255,0.1)'}
+              >View</button>
+
+              <button onClick={() => setConfirmDelete(c)} style={{
+                background: 'rgba(255,51,51,0.08)', border: '1px solid rgba(255,51,51,0.25)',
+                color: '#ff5555', borderRadius: 8, padding: '5px 12px',
+                cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                transition: 'all 0.2s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,51,51,0.18)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,51,51,0.08)'}
+              >🗑 Delete</button>
+            </div>
           </div>
         ))}
       </div>
@@ -325,6 +356,53 @@ export default function CustomerManagement() {
 
       {/* Detail modal */}
       <CustomerModal customer={selected} onClose={() => setSelected(null)} />
+
+      {/* Confirm delete modal */}
+      {confirmDelete && (
+        <div onClick={() => !deleting && setConfirmDelete(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, backdropFilter: 'blur(6px)',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#0e0e1f', border: '1px solid rgba(255,51,51,0.25)',
+            borderRadius: 20, padding: '32px 28px', maxWidth: 380, width: '100%',
+            textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ fontSize: 44, marginBottom: 14 }}>🗑️</div>
+            <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: '0 0 8px' }}>
+              Delete Customer?
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, margin: '0 0 6px' }}>
+              <strong style={{ color: '#fff' }}>{confirmDelete.fullName}</strong>
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, margin: '0 0 24px' }}>
+              This will permanently remove the account. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                disabled={deleting}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: 10, cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.6)', fontWeight: 600, fontSize: 13,
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: 10, cursor: deleting ? 'not-allowed' : 'pointer',
+                  background: deleting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#ff2222,#cc0000)',
+                  border: 'none', color: '#fff', fontWeight: 800, fontSize: 13,
+                  boxShadow: deleting ? 'none' : '0 4px 16px rgba(255,34,34,0.35)',
+                }}
+              >{deleting ? '⏳ Deleting...' : '🗑 Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

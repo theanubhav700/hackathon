@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 
 const navItems = [
-  { icon: '🚑', label: 'Book Ambulance', path: '/customer/book' },
-  { icon: '📡', label: 'Live Tracking',  path: '/customer/tracking' },
   { icon: '👤', label: 'Profile',        path: '/customer/profile' },
+  { icon: '🎫', label: 'My Tickets',     path: '/customer/tickets' },
+  { icon: '🚑', label: 'Book Ambulance', path: '/customer/book' },
 ];
 
 export default function CustomerLayout({ children }) {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div style={{
@@ -19,16 +18,15 @@ export default function CustomerLayout({ children }) {
     }}>
       {/* ── Sidebar ─────────────────────────────────── */}
       <aside style={{
-        width: collapsed ? 70 : 240,
+        width: 240,
         background: 'rgba(255,255,255,0.03)',
         borderRight: '1px solid rgba(255,255,255,0.07)',
         display: 'flex', flexDirection: 'column',
-        transition: 'width 0.3s ease',
         flexShrink: 0, position: 'sticky', top: 0, height: '100vh',
       }}>
         {/* Logo */}
         <div style={{
-          padding: collapsed ? '20px 16px' : '24px 20px',
+          padding: '24px 20px',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
           display: 'flex', alignItems: 'center',
           gap: 12, overflow: 'hidden',
@@ -39,12 +37,10 @@ export default function CustomerLayout({ children }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 18, boxShadow: '0 0 16px rgba(255,34,34,0.4)',
           }}>🚑</div>
-          {!collapsed && (
-            <div>
-              <div style={{ color: '#fff', fontWeight: 900, fontSize: 15, letterSpacing: 1 }}>ResQ</div>
-              <div style={{ color: '#ff3333', fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>CUSTOMER</div>
-            </div>
-          )}
+          <div>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 15, letterSpacing: 1 }}>ResQ</div>
+            <div style={{ color: '#ff3333', fontSize: 9, fontWeight: 700, letterSpacing: 2 }}>CUSTOMER</div>
+          </div>
         </div>
 
         {/* Nav */}
@@ -70,14 +66,12 @@ export default function CustomerLayout({ children }) {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
               >
                 <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
-                {!collapsed && (
-                  <span style={{
-                    color: active ? '#ff3333' : 'rgba(255,255,255,0.6)',
-                    fontSize: 13, fontWeight: active ? 700 : 500,
-                    whiteSpace: 'nowrap',
-                  }}>{item.label}</span>
-                )}
-                {active && !collapsed && (
+                <span style={{
+                  color: active ? '#ff3333' : 'rgba(255,255,255,0.6)',
+                  fontSize: 13, fontWeight: active ? 700 : 500,
+                  whiteSpace: 'nowrap',
+                }}>{item.label}</span>
+                {active && (
                   <div style={{
                     marginLeft: 'auto', width: 6, height: 6,
                     borderRadius: '50%', background: '#ff3333',
@@ -88,20 +82,6 @@ export default function CustomerLayout({ children }) {
             );
           })}
         </nav>
-
-        {/* Collapse toggle */}
-        <div style={{ padding: '16px 10px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <button
-            onClick={() => setCollapsed(c => !c)}
-            style={{
-              width: '100%', padding: '10px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
-              fontSize: 16, transition: 'all 0.2s',
-            }}
-          >{collapsed ? '→' : '← Collapse'}</button>
-        </div>
 
         {/* Logout */}
         <div style={{ padding: '0 10px 20px' }}>
@@ -114,14 +94,13 @@ export default function CustomerLayout({ children }) {
             transition: 'all 0.2s',
           }}>
             <span style={{ fontSize: 18 }}>🚪</span>
-            {!collapsed && <span style={{ color: 'rgba(255,100,100,0.7)', fontSize: 13, fontWeight: 500 }}>Logout</span>}
+            <span style={{ color: 'rgba(255,100,100,0.7)', fontSize: 13, fontWeight: 500 }}>Logout</span>
           </Link>
         </div>
       </aside>
 
       {/* ── Main content ────────────────────────────── */}
       <main style={{ flex: 1, overflow: 'auto', minHeight: '100vh' }}>
-        {/* Page content */}
         <div style={{ padding: '32px' }}>
           {children}
         </div>

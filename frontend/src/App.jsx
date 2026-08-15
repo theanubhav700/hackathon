@@ -12,8 +12,8 @@ import CustomerRegister from './pages/auth/CustomerRegister';
 
 // Customer
 import BookAmbulance from './pages/customer/BookAmbulance';
-import LiveTracking  from './pages/customer/LiveTracking';
 import Profile       from './pages/customer/Profile';
+import MyTickets     from './pages/customer/MyTickets';
 
 // Admin
 import AdminDashboard      from './pages/admin/AdminDashboard';
@@ -22,10 +22,8 @@ import AmbulanceManagement from './pages/admin/AmbulanceManagement';
 import DriverManagement    from './pages/admin/DriverManagement';
 import CustomerManagement  from './pages/admin/CustomerManagement';
 import HospitalManagement  from './pages/admin/HospitalManagement';
-import LiveMap             from './pages/admin/LiveMap';
 import ActivityLogs        from './pages/admin/ActivityLogs';
 import Analytics           from './pages/admin/Analytics';
-import SystemManagement    from './pages/admin/SystemManagement';
 
 // Driver
 import DriverDashboard   from './pages/driver/DriverDashboard';
@@ -88,8 +86,8 @@ export default function App() {
         {/* ── Customer ── */}
         <Route path="/customer"          element={<BookAmbulance />} />
         <Route path="/customer/book"     element={<BookAmbulance />} />
-        <Route path="/customer/tracking" element={<LiveTracking />} />
         <Route path="/customer/profile"  element={<Profile />} />
+        <Route path="/customer/tickets"  element={<MyTickets />} />
 
         {/* ── Admin ── */}
         <Route path="/admin"             element={<AdminDashboard />} />
@@ -99,10 +97,8 @@ export default function App() {
         <Route path="/admin/drivers"     element={<DriverManagement />} />
         <Route path="/admin/customers"   element={<CustomerManagement />} />
         <Route path="/admin/hospitals"   element={<HospitalManagement />} />
-        <Route path="/admin/map"         element={<LiveMap />} />
         <Route path="/admin/logs"        element={<ActivityLogs />} />
         <Route path="/admin/analytics"   element={<Analytics />} />
-        <Route path="/admin/system"      element={<SystemManagement />} />
 
         {/* ── Driver ── */}
         <Route path="/driver/dashboard"     element={<DriverRoute><DriverDashboard /></DriverRoute>} />

@@ -5,7 +5,7 @@ const User = require('../models/User');
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET || 'resq_secret_key', { expiresIn: '7d' });
 
-// ── POST /api/auth/register ─────────────────────────────
+// POST /api/auth/register
 exports.register = async (req, res) => {
   try {
     const { fullName, mobile, email, password, age, gender, bloodGroup, ecName, ecNumber } = req.body;
@@ -36,6 +36,10 @@ exports.register = async (req, res) => {
         ecName:   user.ecName,
         ecNumber: user.ecNumber,
         role:     user.role,
+        licenseNo: user.licenseNo,
+        experience: user.experience,
+        driverStatus: user.driverStatus,
+        assignedAmbulance: user.assignedAmbulance,
       },
     });
   } catch (err) {
@@ -43,7 +47,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// ── POST /api/auth/login ────────────────────────────────
+// POST /api/auth/login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -51,7 +55,7 @@ exports.login = async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ success: false, message: 'Please fill all fields' });
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate('assignedAmbulance');
     if (!user)
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
 
@@ -73,6 +77,10 @@ exports.login = async (req, res) => {
         ecName:   user.ecName,
         ecNumber: user.ecNumber,
         role:     user.role,
+        licenseNo: user.licenseNo,
+        experience: user.experience,
+        driverStatus: user.driverStatus,
+        assignedAmbulance: user.assignedAmbulance,
       },
     });
   } catch (err) {
