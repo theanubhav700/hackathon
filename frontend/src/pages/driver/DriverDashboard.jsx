@@ -121,53 +121,7 @@ export default function DriverDashboard() {
         </div>
       </div>
 
-      {/* Emergency Request Banner if Active */}
-      <AnimatePresence>
-        {activeRequest && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            style={{
-              background: 'linear-gradient(135deg,rgba(255,34,34,0.2),rgba(255,102,0,0.15))',
-              border: '2px solid #ff3333', borderRadius: 20, padding: '24px', marginBottom: 24,
-              boxShadow: '0 10px 40px rgba(255,34,34,0.3)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 32 }}>🚨</span>
-                <div>
-                  <h2 style={{ color: '#ff4444', fontWeight: 900, margin: '0 0 2px', fontSize: 20 }}>URGENT: New Emergency Request!</h2>
-                  <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>Problem: <strong>{activeRequest.emergencyType}</strong></div>
-                </div>
-              </div>
-              <span style={{ background: '#ff3333', color: '#fff', fontSize: 12, fontWeight: 900, padding: '4px 12px', borderRadius: 20 }}>LIVE ALERT</span>
-            </div>
-
-            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: 14, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, marginBottom: 18 }}>
-              <div>👤 <strong>Patient Name:</strong> {activeRequest.customerName}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span>📞 <strong>Mobile:</strong> {activeRequest.customerPhone}</span>
-                {activeRequest.customerPhone && activeRequest.customerPhone !== '—' && (
-                  <a href={'tel:' + activeRequest.customerPhone} style={{ background: 'rgba(0,204,102,0.2)', color: '#00cc66', padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>Call</a>
-                )}
-              </div>
-              <div>📍 <strong>Current Location:</strong> {activeRequest.customerLocation}</div>
-              {activeRequest.message && <div>📝 <strong>Patient Notes:</strong> {activeRequest.message}</div>}
-            </div>
-
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button
-                onClick={() => setActiveRequest(null)}
-                style={{ flex: 1, padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontWeight: 700 }}
-              >Dismiss</button>
-              <button
-                onClick={() => handleAcceptRequest(activeRequest)}
-                style={{ flex: 2, padding: '14px', borderRadius: 12, background: 'linear-gradient(135deg,#00cc66,#009944)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 900, fontSize: 15, boxShadow: '0 6px 24px rgba(0,204,102,0.4)' }}
-              >✓ Accept Request & Navigate</button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Emergency Request Banner if Active — REMOVED, handled by bell only */}
 
       {/* Quick Navigation Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>

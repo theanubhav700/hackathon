@@ -64,6 +64,7 @@ export default function DriverLayout({ children }) {
     try { return JSON.parse(localStorage.getItem('resq_driver_notifications') || '[]'); } catch { return []; }
   });
   const [accepting, setAccepting] = useState(null);
+  const acceptedRef = useRef(false); // prevents any re-click across renders
   const notifRef = useRef(null);
   const socketRef = useRef(null);
 
@@ -157,8 +158,10 @@ export default function DriverLayout({ children }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleAccept = (n) => {
-    const bookingData = n.data || n;
+    if (acceptedRef.current) return; // hard block — ref persists across renders
+    acceptedRef.current = true;
     setAccepting(n.id);
+    const bookingData = n.data || n;
 
     if (socketRef.current?.connected) {
       socketRef.current.emit('booking:accept', {
@@ -183,13 +186,30 @@ export default function DriverLayout({ children }) {
       etaMin:           n.etaMin,
     }));
 
+    // ── Permanently save patient info ──────────────────
+    const patientRecord = {
+      bookingId:    bookingData.bookingId || n.id,
+      name:         n.customerName     || '—',
+      mobile:       n.customerPhone    || '—',
+      address:      n.customerLocation || '—',
+      lat:          n.customerLat      || null,
+      lon:          n.customerLon      || null,
+      emergencyType: n.label           || '—',
+      problem:      n.problem          || n.label || '—',
+      notes:        n.message          || '—',
+      acceptedAt:   new Date().toISOString(),
+    };
+    localStorage.setItem('resq_patient_info', JSON.stringify(patientRecord));
+    // Also keep history
+    const history = JSON.parse(localStorage.getItem('resq_patient_history') || '[]');
+    localStorage.setItem('resq_patient_history', JSON.stringify([patientRecord, ...history].slice(0, 20)));
+
     setNotifications(prev => {
       const updated = prev.map(item => item.id === n.id ? { ...item, status: 'accepted', read: true } : item);
       localStorage.setItem('resq_driver_notifications', JSON.stringify(updated));
       return updated;
     });
 
-    setAccepting(null);
     setNotifOpen(false);
     navigate('/driver/navigation');
   };

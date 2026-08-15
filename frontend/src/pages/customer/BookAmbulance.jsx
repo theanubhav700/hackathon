@@ -475,19 +475,7 @@ export default function BookAmbulance() {
 
   return (
     <CustomerLayout>
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            style={{
-              position: 'fixed', top: 20, right: 20, zIndex: 9999,
-              background: toast.color, color: '#fff',
-              padding: '12px 24px', borderRadius: 12, fontWeight: 700, fontSize: 14,
-              boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-            }}
-          >{toast.msg}</motion.div>
-        )}
-      </AnimatePresence>
+      {/* No toast — notifications handled by driver bell only */}
 
       <AnimatePresence>
         {bookingAmb && (
@@ -509,51 +497,59 @@ export default function BookAmbulance() {
         </div>
 
         {booked && bookedInfo ? (
-          <motion.div
+        <motion.div
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             style={{
-              background: 'rgba(0,204,102,0.06)', border: '1px solid rgba(0,204,102,0.3)',
-              borderRadius: 20, padding: '32px', textAlign: 'center',
+              background: 'rgba(0,204,102,0.08)', border: '1px solid rgba(0,204,102,0.3)',
+              borderRadius: 20, padding: '36px', textAlign: 'center',
             }}
           >
             <div style={{ fontSize: 56, marginBottom: 12 }}>🚑</div>
-            <h2 style={{ color: '#00cc66', fontWeight: 900, margin: '0 0 8px' }}>Emergency Request Dispatched!</h2>
-            <p style={{ color: '#fff', fontSize: 15, margin: '0 0 20px' }}>
+            <h2 style={{ color: '#00cc66', fontWeight: 900, margin: '0 0 8px', fontSize: 24 }}>Emergency Request Dispatched!</h2>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, margin: '0 0 24px' }}>
               Notification sent to driver <strong style={{ color: '#00cc66' }}>{bookedInfo.driverName || bookedInfo.driver}</strong>.
             </p>
-            
+
             <div style={{
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 14, padding: '20px', maxWidth: 480, margin: '0 auto 24px', textAlign: 'left',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 14, padding: '20px', maxWidth: 480, margin: '0 auto 28px', textAlign: 'left',
             }}>
-              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase' }}>Details Sent to Driver:</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                <div>👤 <strong>Name:</strong> {bookedInfo.customerName}</div>
-                <div>📞 <strong>Phone:</strong> {bookedInfo.customerPhone}</div>
-                <div>📍 <strong>Location:</strong> {bookedInfo.customerLocation}</div>
-                <div>⚠️ <strong>Problem:</strong> {bookedInfo.emergencyType}</div>
-                {bookedInfo.message && <div>📝 <strong>Notes:</strong> {bookedInfo.message}</div>}
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 1 }}>Details Sent to Driver:</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span>👤</span>
+                  <span><strong style={{ color: 'rgba(255,255,255,0.5)' }}>Name:</strong> <span style={{ color: '#fff' }}>{bookedInfo.customerName}</span></span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span>📞</span>
+                  <span><strong style={{ color: 'rgba(255,255,255,0.5)' }}>Phone:</strong> <span style={{ color: '#fff' }}>{bookedInfo.customerPhone}</span></span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span>📍</span>
+                  <span><strong style={{ color: 'rgba(255,255,255,0.5)' }}>Location:</strong> <span style={{ color: '#fff' }}>{bookedInfo.customerLocation}</span></span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span>⚠️</span>
+                  <span><strong style={{ color: 'rgba(255,255,255,0.5)' }}>Problem:</strong> <span style={{ color: '#ff8800', fontWeight: 700 }}>{bookedInfo.emergencyType}</span></span>
+                </div>
+                {bookedInfo.message && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span>📝</span>
+                    <span><strong style={{ color: 'rgba(255,255,255,0.5)' }}>Notes:</strong> <span style={{ color: '#fff' }}>{bookedInfo.message}</span></span>
+                  </div>
+                )}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button
-                onClick={() => setBooked(false)}
+                onClick={() => { setBooked(false); setAmbulances([]); setSearched(false); }}
                 style={{
-                  padding: '12px 24px', borderRadius: 12,
+                  padding: '13px 28px', borderRadius: 12,
                   background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#fff', cursor: 'pointer', fontWeight: 700,
+                  color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14,
                 }}
-              >Book Another</button>
-              <a
-                href="/customer/tracking"
-                style={{
-                  padding: '12px 28px', borderRadius: 12,
-                  background: 'linear-gradient(135deg,#00cc66,#009944)', border: 'none',
-                  color: '#fff', textDecoration: 'none', fontWeight: 800,
-                  boxShadow: '0 6px 20px rgba(0,204,102,0.4)', display: 'inline-block',
-                }}
-              >Live Tracking →</a>
+              >← Go Back</button>
             </div>
           </motion.div>
         ) : (
