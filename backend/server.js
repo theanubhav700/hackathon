@@ -342,8 +342,11 @@ io.on('connection', (socket) => {
     }
     // Confirm back to driver
     socket.emit('booking:accept_confirmed', { bookingId, message: 'You have accepted the booking.' });
-    // Broadcast status change
+    // Broadcast status change to ALL (including admin)
     io.emit('booking:status_change', { bookingId, status: 'Accepted' });
+    // Also explicitly notify admin room
+    io.to('admin_room').emit('booking:accepted', acceptPayload);
+    io.to('admin_room').emit('booking:status_change', { bookingId, status: 'Accepted' });
   });
 
   // Driver REJECTS booking

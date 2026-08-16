@@ -194,7 +194,7 @@ export default function ActivityLogs() {
                     {tc.icon} {l.type}
                   </span>
                   <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontFamily: 'monospace' }}>
-                    {l.bookingId?.slice(-10) || '—'}
+                    {l.bookingId || '—'}
                   </span>
                 </div>
 

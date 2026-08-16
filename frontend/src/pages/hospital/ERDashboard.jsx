@@ -22,58 +22,103 @@ const VITAL_CONFIG = [
 
 // ECG canvas component
 function ECGMonitor({ data, situation }) {
-  const canvasRef = useRef(null);
+  const canvasRef    = useRef(null);
+  const animFrameRef = useRef(null);
   const cfg = SITUATION_CONFIG[situation] || SITUATION_CONFIG.stable;
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || data.length < 2) return;
-    const ctx   = canvas.getContext('2d');
-    const W = canvas.width;
-    const H = canvas.height;
+    if (!canvas) return;
 
-    ctx.clearRect(0, 0, W, H);
+    const draw = () => {
+      const ctx = canvas.getContext('2d');
+      const W   = canvas.width;
+      const H   = canvas.height;
 
-    // Dark background
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, W, H);
+      // Background
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#020810';
+      ctx.fillRect(0, 0, W, H);
 
-    // Grid lines
-    ctx.strokeStyle = 'rgba(0,204,102,0.08)';
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x < W; x += 40) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    }
-    for (let y = 0; y < H; y += 20) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    }
+      // Grid — major lines
+      ctx.strokeStyle = 'rgba(0,204,102,0.07)';
+      ctx.lineWidth   = 1;
+      for (let x = 0; x <= W; x += 50) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = 0; y <= H; y += 30) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      // Grid — minor lines
+      ctx.strokeStyle = 'rgba(0,204,102,0.03)';
+      ctx.lineWidth   = 0.5;
+      for (let x = 0; x <= W; x += 10) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = 0; y <= H; y += 6) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
 
-    // ECG line
-    const max    = Math.max(...data.map(Math.abs), 1);
-    const mid    = H / 2;
-    const scaleY = (H * 0.38) / max;
-    const stepX  = W / (data.length - 1);
+      if (data.length < 2) return;
 
-    ctx.beginPath();
-    ctx.strokeStyle = cfg.color;
-    ctx.lineWidth = 2;
-    ctx.shadowColor = cfg.color;
-    ctx.shadowBlur  = 6;
+      // Baseline
+      const mid    = H * 0.55;
+      const max    = Math.max(...data.map(Math.abs), 0.5);
+      const scaleY = (H * 0.42) / max;
+      const stepX  = W / (data.length - 1);
 
-    data.forEach((v, i) => {
-      const x = i * stepX;
-      const y = mid - v * scaleY;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }, [data, situation]);
+      // Glow pass (thick, low opacity)
+      ctx.beginPath();
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth   = 6;
+      ctx.globalAlpha = 0.15;
+      ctx.shadowColor = cfg.color;
+      ctx.shadowBlur  = 0;
+      data.forEach((v, i) => {
+        const x = i * stepX;
+        const y = mid - v * scaleY;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Main line
+      ctx.beginPath();
+      ctx.strokeStyle = cfg.color;
+      ctx.lineWidth   = 2;
+      ctx.globalAlpha = 1;
+      ctx.shadowColor = cfg.color;
+      ctx.shadowBlur  = 10;
+      data.forEach((v, i) => {
+        const x = i * stepX;
+        const y = mid - v * scaleY;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Bright tip — last point
+      const lastX = (data.length - 1) * stepX;
+      const lastY = mid - data[data.length - 1] * scaleY;
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+      ctx.fillStyle   = '#fff';
+      ctx.shadowColor = cfg.color;
+      ctx.shadowBlur  = 16;
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur  = 0;
+    };
+
+    draw();
+  }, [data, situation, cfg.color]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={600}
-      height={100}
-      style={{ width: '100%', height: 100, borderRadius: 8, display: 'block' }}
+      width={1200}
+      height={160}
+      style={{ width: '100%', height: 160, borderRadius: 10, display: 'block' }}
     />
   );
 }
@@ -135,7 +180,6 @@ export default function ERDashboard() {
     setBookingId(id);
     socketRef.current?.emit('er:join', { bookingId: id, hospitalName: 'ER Dashboard' });
     setConnected(true);
-    addAlert(`🏥 Joined telemetry for booking ${id}`, '#3399ff');
   };
 
   const sit    = SITUATION_CONFIG[telemetry?.situation] || SITUATION_CONFIG.stable;
@@ -283,25 +327,40 @@ export default function ERDashboard() {
 
             {/* ── ECG Monitor ── */}
             <div style={{
-              background: 'rgba(0,0,0,0.5)',
-              border: '1px solid rgba(0,204,102,0.2)',
-              borderRadius: 14, padding: '16px 20px', marginBottom: 16,
+              background: '#020810',
+              border: '1px solid rgba(0,204,102,0.25)',
+              borderRadius: 16, padding: '18px 22px', marginBottom: 16,
+              boxShadow: '0 0 30px rgba(0,204,102,0.06)',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ color: '#00cc66', fontWeight: 800, fontSize: 13 }}>📈 Live ECG Monitor</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ color: '#00cc66', fontWeight: 800, fontSize: 14, letterSpacing: 0.5 }}>LIVE ECG MONITOR</div>
+                  {telemetry?.situation && (
+                    <div style={{
+                      background: `${(SITUATION_CONFIG[telemetry.situation] || SITUATION_CONFIG.stable).color}22`,
+                      border: `1px solid ${(SITUATION_CONFIG[telemetry.situation] || SITUATION_CONFIG.stable).color}55`,
+                      borderRadius: 6, padding: '2px 10px',
+                      color: (SITUATION_CONFIG[telemetry.situation] || SITUATION_CONFIG.stable).color,
+                      fontSize: 11, fontWeight: 700,
+                    }}>
+                      {(SITUATION_CONFIG[telemetry.situation] || SITUATION_CONFIG.stable).label}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <motion.div
                     animate={{ opacity: [1, 0.2, 1] }}
                     transition={{ duration: 0.8, repeat: Infinity }}
-                    style={{ width: 6, height: 6, borderRadius: '50%', background: '#00cc66' }}
+                    style={{ width: 7, height: 7, borderRadius: '50%', background: '#00cc66', boxShadow: '0 0 6px #00cc66' }}
                   />
                   <span style={{ color: '#00cc66', fontSize: 11, fontWeight: 700 }}>STREAMING</span>
+                  <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 11, marginLeft: 8 }}>25mm/s</span>
                 </div>
               </div>
               <ECGMonitor data={ecgData} situation={telemetry?.situation || 'stable'} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>Real-time waveform from ambulance</span>
-                <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>Speed: 25mm/s</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                <span style={{ color: 'rgba(0,204,102,0.3)', fontSize: 10, fontFamily: 'monospace' }}>I   II   III   aVR   aVL   aVF</span>
+                <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 10 }}>Real-time waveform from ambulance</span>
               </div>
             </div>
 
@@ -313,11 +372,11 @@ export default function ERDashboard() {
                 <div style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 800, fontSize: 12, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
                   🔔 Alert Log
                 </div>
-                <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <AnimatePresence>
                     {alerts.length === 0 ? (
-                      <div style={{ color: 'rgba(255,255,255,0.15)', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>
-                        Waiting for telemetry...
+                      <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: 12, textAlign: 'center', padding: '24px 0', fontStyle: 'italic' }}>
+                        No alerts yet — waiting for vitals push from ambulance
                       </div>
                     ) : alerts.map(a => (
                       <motion.div
@@ -330,7 +389,7 @@ export default function ERDashboard() {
                           borderRadius: 8, padding: '7px 10px',
                         }}
                       >
-                        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, flexShrink: 0, marginTop: 1 }}>{a.time}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, flexShrink: 0, marginTop: 1, fontFamily: 'monospace' }}>{a.time}</span>
                         <span style={{ color: a.color, fontSize: 12 }}>{a.msg}</span>
                       </motion.div>
                     ))}

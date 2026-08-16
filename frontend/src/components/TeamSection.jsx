@@ -1,19 +1,25 @@
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
+import amanImg    from '../assets/aman.png.jpeg';
+import riyaImg    from '../assets/riya.png';
+import shaliniImg from '../assets/shalini.png';
+import nikitaImg  from '../assets/nikita.png';
+import palakImg   from '../assets/palak.png';
 
 const leader = {
   name: 'Aman Chaudhary',
   role: 'Project Lead & Full Stack Architect',
   color: '#ff3333',
   initials: 'AC',
+  img: amanImg,
 };
 
 const members = [
-  { name: 'Riya Kashyap',    role: 'Frontend Developer', color: '#ff8800', initials: 'RK' },
-  { name: 'Shalini Diwakar', role: 'UI/UX Designer',     color: '#aa44ff', initials: 'SD' },
-  { name: 'Nikita Devi',     role: 'Backend Developer',  color: '#3399ff', initials: 'ND' },
-  { name: 'Shrishti Tiwari', role: 'Database Engineer',  color: '#00cc66', initials: 'ST' },
-  { name: 'Palak Singh',     role: 'QA & Testing',       color: '#ff3399', initials: 'PS' },
+  { name: 'Riya Kashyap',    role: 'Frontend Developer', color: '#ff8800', initials: 'RK', img: riyaImg    },
+  { name: 'Shalini Diwakar', role: 'UI/UX Designer',     color: '#aa44ff', initials: 'SD', img: shaliniImg },
+  { name: 'Nikita Devi',     role: 'Backend Developer',  color: '#3399ff', initials: 'ND', img: nikitaImg  },
+  { name: 'Shrishti Tiwari', role: 'Database Engineer',  color: '#00cc66', initials: 'ST', img: null       },
+  { name: 'Palak Singh',     role: 'QA & Testing',       color: '#ff3399', initials: 'PS', img: palakImg   },
 ];
 
 function Avatar({ member, size = 100, delay = 0, darkMode }) {
@@ -54,8 +60,19 @@ function Avatar({ member, size = 100, delay = 0, darkMode }) {
           e.currentTarget.style.background = `${member.color}18`;
         }}
       >
-        {/* Placeholder initials — swap with <img> later */}
-        <span>{member.initials}</span>
+        {/* Photo or initials */}
+        {member.img ? (
+          <img
+            src={member.img}
+            alt={member.name}
+            style={{
+              width: '100%', height: '100%',
+              objectFit: 'cover', borderRadius: '50%',
+            }}
+          />
+        ) : (
+          <span>{member.initials}</span>
+        )}
 
         {/* Ping ring for leader */}
         {size > 100 && (

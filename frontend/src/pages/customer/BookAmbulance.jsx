@@ -487,7 +487,7 @@ export default function BookAmbulance() {
       emergencyType: emergency,
       location:     location || '—',
       bookedAt:     new Date().toISOString(),
-      status:       'Pending',
+      status:       'Confirmed',
     };
     const ticketsKey = `resq_tickets_${customer._id || 'guest'}`;
     const existing = JSON.parse(localStorage.getItem(ticketsKey) || '[]');
@@ -504,7 +504,7 @@ export default function BookAmbulance() {
       driverPhone:      amb.driverPhone   || '—',
       eta:              amb.eta           || '—',
       bookedAt:         new Date().toISOString(),
-      status:           'Pending',
+      status:           'Confirmed',
     };
     const adminExisting = JSON.parse(localStorage.getItem('resq_admin_requests') || '[]');
     localStorage.setItem('resq_admin_requests', JSON.stringify([adminRequest, ...adminExisting]));

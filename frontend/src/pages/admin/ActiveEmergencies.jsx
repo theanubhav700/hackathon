@@ -1,13 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
+import { io } from 'socket.io-client';
+import { motion } from 'framer-motion';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace('/api', '')
+  : 'http://localhost:5000';
 
 const STATUS_STYLE = {
-  Pending: { color: '#ffaa00', bg: 'rgba(255,170,0,0.12)',  border: 'rgba(255,170,0,0.3)',  dot: '#ffaa00' },
-  Active:  { color: '#3399ff', bg: 'rgba(51,153,255,0.12)', border: 'rgba(51,153,255,0.3)', dot: '#3399ff' },
-  Done:    { color: '#00cc66', bg: 'rgba(0,204,102,0.12)',  border: 'rgba(0,204,102,0.3)',  dot: '#00cc66' },
+  Confirmed: { color: '#00cc66', bg: 'rgba(0,204,102,0.12)',  border: 'rgba(0,204,102,0.3)',  dot: '#00cc66' },
+  Accepted:  { color: '#00cc66', bg: 'rgba(0,204,102,0.12)',  border: 'rgba(0,204,102,0.3)',  dot: '#00cc66' },
+  Active:    { color: '#3399ff', bg: 'rgba(51,153,255,0.12)', border: 'rgba(51,153,255,0.3)', dot: '#3399ff' },
+  Done:      { color: '#00cc66', bg: 'rgba(0,204,102,0.12)',  border: 'rgba(0,204,102,0.3)',  dot: '#00cc66' },
 };
 
-const FILTERS = ['All', 'Pending', 'Done'];
+const FILTERS = ['All', 'Confirmed', 'Done'];
 
 function formatDate(iso) {
   const d = new Date(iso);
@@ -28,11 +35,63 @@ export default function ActiveEmergencies() {
     };
     load();
     window.addEventListener('storage', load);
-    // Also poll every 3s so same-tab booking updates reflect instantly
-    const interval = setInterval(load, 3000);
+    // Poll every 2s so same-tab booking updates reflect instantly
+    const interval = setInterval(load, 2000);
+
+    // ── Socket: listen for driver accept ──────────────────
+    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+
+    socket.on('connect', () => {
+      socket.emit('admin:join');
+    });
+
+    const updateStatus = (bookingId, newStatus) => {
+      setRequests(prev => {
+        const updated = prev.map(r =>
+          r.bookingId === bookingId ? { ...r, status: newStatus } : r
+        );
+        localStorage.setItem('resq_admin_requests', JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    socket.on('booking:status_change', ({ bookingId, status }) => {
+      const mapped = status === 'Accepted' ? 'Confirmed' : status;
+      updateStatus(bookingId, mapped);
+    });
+
+    socket.on('booking:accepted', (data) => {
+      updateStatus(data.bookingId, 'Confirmed');
+    });
+
+    // Catch-all — any booking:request that comes in, update pending ones
+    socket.on('booking:request', (data) => {
+      // new booking coming in — add to list if not already there
+      setRequests(prev => {
+        const exists = prev.find(r => r.bookingId === data.bookingId);
+        if (exists) return prev;
+        const newEntry = {
+          bookingId:     data.bookingId,
+          customerName:  data.customerName  || '—',
+          customerPhone: data.customerPhone || '—',
+          location:      data.customerLocation || '—',
+          ambulance:     `${data.ambulanceId} — ${data.ambulanceType}`,
+          driverName:    data.driverName    || '—',
+          driverPhone:   data.driverPhone   || '—',
+          eta:           data.etaMin        || '—',
+          bookedAt:      data.createdAt     || new Date().toISOString(),
+          status:        'Confirmed',
+        };
+        const updated = [newEntry, ...prev];
+        localStorage.setItem('resq_admin_requests', JSON.stringify(updated));
+        return updated;
+      });
+    });
+
     return () => {
       window.removeEventListener('storage', load);
       clearInterval(interval);
+      socket.disconnect();
     };
   }, []);
 
@@ -57,18 +116,35 @@ export default function ActiveEmergencies() {
   return (
     <AdminLayout>
       {/* ── Header ── */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 26, margin: '0 0 5px' }}>🚨 All Requests</h1>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, margin: 0 }}>
-          Every ambulance booking made by customers — updates in real-time
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 26, margin: '0 0 5px' }}>🚨 All Requests</h1>
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, margin: 0 }}>
+            Every ambulance booking made by customers — updates in real-time
+          </p>
+        </div>
+        {requests.length > 0 && (
+          <button
+            onClick={() => {
+              localStorage.removeItem('resq_admin_requests');
+              setRequests([]);
+            }}
+            style={{
+              padding: '8px 18px', borderRadius: 10, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+              background: 'rgba(255,85,85,0.08)', border: '1px solid rgba(255,85,85,0.2)',
+              color: '#ff5555', fontFamily: 'inherit',
+            }}
+          >
+            🗑 Clear All
+          </button>
+        )}
       </div>
 
       {/* ── Filter bar ── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         {FILTERS.map(f => {
           const active = activeFilter === f;
-          const color  = f === 'Pending' ? '#ffaa00' : f === 'Active' ? '#3399ff' : f === 'Done' ? '#00cc66' : '#ff4444';
+          const color  = f === 'Confirmed' ? '#00cc66' : f === 'Active' ? '#3399ff' : f === 'Done' ? '#00cc66' : '#aa44ff';
           return (
             <button
               key={f}
@@ -140,7 +216,7 @@ export default function ActiveEmergencies() {
           </div>
         ) : (
           filtered.map((r, i) => {
-            const st = STATUS_STYLE[r.status] || STATUS_STYLE.Pending;
+            const st = STATUS_STYLE[r.status] || STATUS_STYLE.Confirmed;
             return (
               <div
                 key={r.bookingId}
@@ -158,7 +234,7 @@ export default function ActiveEmergencies() {
                 {/* Booking ID */}
                 <div>
                   <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>
-                    {r.bookingId?.slice(-10) || '—'}
+                    {r.bookingId || '—'}
                   </div>
                   <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 2 }}>
                     🕒 {formatDate(r.bookedAt)}
@@ -207,8 +283,13 @@ export default function ActiveEmergencies() {
                     background: st.bg, border: `1px solid ${st.border}`, color: st.color,
                     whiteSpace: 'nowrap',
                   }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, flexShrink: 0 }} />
-                    {r.status}
+                    <motion.span
+                      animate={r.status === 'Confirmed' || r.status === 'Accepted'
+                        ? { opacity: [1, 0.3, 1] } : {}}
+                      transition={{ duration: 1.2, repeat: Infinity }}
+                      style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, flexShrink: 0, display: 'inline-block' }}
+                    />
+                    {r.status === 'Accepted' ? 'Confirmed' : r.status}
                   </span>
                   {r.status === 'Done' && r.completedAt && (
                     <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginTop: 4 }}>

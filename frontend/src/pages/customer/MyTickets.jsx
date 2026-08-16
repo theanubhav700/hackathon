@@ -14,7 +14,7 @@ const EMERGENCY_LABELS = {
 };
 
 const STATUS_STYLE = {
-  Pending:   { color: '#ffaa00', bg: 'rgba(255,170,0,0.1)',   border: 'rgba(255,170,0,0.25)',   dot: '#ffaa00' },
+  Confirmed: { color: '#00cc66', bg: 'rgba(0,204,102,0.1)',   border: 'rgba(0,204,102,0.25)',   dot: '#00cc66' },
   Active:    { color: '#3399ff', bg: 'rgba(51,153,255,0.1)',  border: 'rgba(51,153,255,0.25)',  dot: '#3399ff' },
   Completed: { color: '#00cc66', bg: 'rgba(0,204,102,0.1)',   border: 'rgba(0,204,102,0.25)',   dot: '#00cc66' },
   Cancelled: { color: '#ff5555', bg: 'rgba(255,85,85,0.08)',  border: 'rgba(255,85,85,0.2)',    dot: '#ff5555' },
@@ -142,7 +142,7 @@ export default function MyTickets() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <AnimatePresence>
           {tickets.map((t, i) => {
-            const st    = STATUS_STYLE[t.status] || STATUS_STYLE.Pending;
+            const st    = STATUS_STYLE[t.status] || STATUS_STYLE.Confirmed;
             const isExp = expanded === t.ticketId;
             return (
               <motion.div
