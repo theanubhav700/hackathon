@@ -36,22 +36,6 @@ export default function PatientReceived() {
                 ].map((item, i) => <CheckItem key={i} text={item} />)}
               </div>
 
-              {/* Trip summary — empty state */}
-              <div style={{ background: 'rgba(0,204,102,0.05)', border: '1px solid rgba(0,204,102,0.15)', borderRadius: 14, padding: '18px 22px', marginBottom: 24 }}>
-                <div style={{ color: '#00cc66', fontWeight: 800, fontSize: 13, marginBottom: 12 }}>📍 Trip Summary</div>
-                {[
-                  ['Patient',      '—'],
-                  ['Emergency',    '—'],
-                  ['Destination',  '—'],
-                  ['Pickup Time',  new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>{l}</span>
-                    <span style={{ color: v === '—' ? 'rgba(255,255,255,0.2)' : '#fff', fontSize: 13, fontWeight: 600 }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-
               <motion.button whileTap={{ scale: 0.97 }} onClick={handleReceived}
                 style={{ width: '100%', padding: '20px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#00cc66,#009944)', color: '#fff', cursor: 'pointer', fontWeight: 900, fontSize: 17, boxShadow: '0 10px 30px rgba(0,204,102,0.4)' }}>
                 ✅ PATIENT RECEIVED — Start Journey

@@ -27,8 +27,11 @@ function formatDate(iso) {
 }
 
 export default function MyTickets() {
+  const customer = JSON.parse(localStorage.getItem('resq_user') || '{}');
+  const ticketsKey = `resq_tickets_${customer._id || 'guest'}`;
+
   const [tickets, setTickets] = useState(() =>
-    JSON.parse(localStorage.getItem('resq_tickets') || '[]')
+    JSON.parse(localStorage.getItem(ticketsKey) || '[]')
   );
   const [expanded, setExpanded] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -36,13 +39,13 @@ export default function MyTickets() {
   const deleteTicket = (ticketId) => {
     const updated = tickets.filter(t => t.ticketId !== ticketId);
     setTickets(updated);
-    localStorage.setItem('resq_tickets', JSON.stringify(updated));
+    localStorage.setItem(ticketsKey, JSON.stringify(updated));
     setConfirmDelete(null);
   };
 
   const clearAll = () => {
     setTickets([]);
-    localStorage.removeItem('resq_tickets');
+    localStorage.removeItem(ticketsKey);
     setConfirmDelete(null);
   };
 

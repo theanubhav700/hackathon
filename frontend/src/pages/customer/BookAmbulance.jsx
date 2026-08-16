@@ -115,31 +115,56 @@ function EmergencyDropdown({ value, onChange }) {
 function MapPreview({ coords, locationName }) {
   if (!coords) return null;
   const [lat, lon] = coords;
-  const bbox = `${lon - 0.01},${lat - 0.007},${lon + 0.01},${lat + 0.007}`;
-  const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+
+  const src = `https://maps.google.com/maps?q=${lat},${lon}&output=embed&t=k&z=16`;
 
   return (
     <div style={{
       marginTop: 12, borderRadius: 12, overflow: 'hidden',
       border: '1px solid rgba(51,153,255,0.25)',
-      background: 'rgba(0,0,0,0.4)', position: 'relative', height: 260,
+      position: 'relative', height: 260,
     }}>
-      <iframe title="Location Map" width="100%" height="100%" frameBorder="0" scrolling="no" src={osmUrl} style={{ border: 0, opacity: 0.85 }} />
+      {/* Status badge — top left */}
       <div style={{
-        position: 'absolute', bottom: 8, left: 8, right: 8,
-        background: 'rgba(5,5,15,0.85)', backdropFilter: 'blur(8px)',
-        borderRadius: 8, padding: '5px 10px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        border: '1px solid rgba(255,255,255,0.08)',
+        position: 'absolute', top: 10, left: 10, zIndex: 10,
+        background: 'rgba(5,5,15,0.88)', backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(51,153,255,0.35)',
+        borderRadius: 16, padding: '4px 11px',
+        display: 'flex', alignItems: 'center', gap: 6,
+        pointerEvents: 'none',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-          <span style={{ color: '#ff3333', fontSize: 12 }}>📍</span>
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {locationName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`}
-          </span>
-        </div>
-        <span style={{ color: '#00cc66', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>● GPS Locked</span>
+        <span style={{ fontSize: 11 }}>📍</span>
+        <span style={{
+          color: '#fff', fontSize: 11, fontWeight: 600,
+          maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {locationName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`}
+        </span>
       </div>
+
+      {/* GPS Locked badge — top right */}
+      <div style={{
+        position: 'absolute', top: 10, right: 10, zIndex: 10,
+        background: 'rgba(5,5,15,0.88)', backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(0,204,102,0.3)',
+        borderRadius: 16, padding: '4px 11px',
+        display: 'flex', alignItems: 'center', gap: 5,
+        pointerEvents: 'none',
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00cc66', display: 'inline-block', boxShadow: '0 0 6px #00cc66' }} />
+        <span style={{ color: '#00cc66', fontSize: 10, fontWeight: 700 }}>GPS Locked</span>
+      </div>
+
+      <iframe
+        title="Location Map"
+        width="100%"
+        height="100%"
+        frameBorder="0"
+        style={{ display: 'block', border: 0 }}
+        referrerPolicy="no-referrer-when-downgrade"
+        src={src}
+        allowFullScreen
+      />
     </div>
   );
 }
@@ -452,7 +477,7 @@ export default function BookAmbulance() {
       console.warn('REST booking fallback failed:', e);
     }
 
-    // Save ticket to localStorage
+    // Save ticket to localStorage — keyed by user ID so each account sees only their own bookings
     const ticket = {
       ticketId:     bookingId,
       ambulance:    `${amb.vehicleId || amb.id} — ${amb.type}`,
@@ -464,8 +489,25 @@ export default function BookAmbulance() {
       bookedAt:     new Date().toISOString(),
       status:       'Pending',
     };
-    const existing = JSON.parse(localStorage.getItem('resq_tickets') || '[]');
-    localStorage.setItem('resq_tickets', JSON.stringify([ticket, ...existing]));
+    const ticketsKey = `resq_tickets_${customer._id || 'guest'}`;
+    const existing = JSON.parse(localStorage.getItem(ticketsKey) || '[]');
+    localStorage.setItem(ticketsKey, JSON.stringify([ticket, ...existing]));
+
+    // Save a copy to admin requests list so admin can see all bookings
+    const adminRequest = {
+      bookingId,
+      customerName:     customer.fullName || customer.name || 'Patient / Customer',
+      customerPhone:    customer.mobile   || customer.phone || '9876543210',
+      location:         location          || 'Location detected',
+      ambulance:        `${amb.vehicleId || amb.id} — ${amb.type}`,
+      driverName:       amb.driver        || '—',
+      driverPhone:      amb.driverPhone   || '—',
+      eta:              amb.eta           || '—',
+      bookedAt:         new Date().toISOString(),
+      status:           'Pending',
+    };
+    const adminExisting = JSON.parse(localStorage.getItem('resq_admin_requests') || '[]');
+    localStorage.setItem('resq_admin_requests', JSON.stringify([adminRequest, ...adminExisting]));
 
     setBookingAmb(null);
     setBookedInfo({ ...amb, tripId: bookingId, ...bookingPayload });

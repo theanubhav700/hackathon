@@ -40,6 +40,11 @@ import HospitalPreAlert  from './pages/driver/HospitalPreAlert';
 import CompleteTrip      from './pages/driver/CompleteTrip';
 import TripHistory       from './pages/driver/TripHistory';
 import Notifications     from './pages/driver/Notifications';
+import Benefits          from './pages/driver/Benefits';
+import GreenCorridor     from './pages/driver/GreenCorridor';
+
+// Hospital
+import ERDashboard from './pages/hospital/ERDashboard';
 
 // Auth guard for driver routes
 function DriverRoute({ children }) {
@@ -115,7 +120,12 @@ export default function App() {
         <Route path="/driver/complete"      element={<DriverRoute><CompleteTrip /></DriverRoute>} />
         <Route path="/driver/history"       element={<DriverRoute><TripHistory /></DriverRoute>} />
         <Route path="/driver/notifications" element={<DriverRoute><Notifications /></DriverRoute>} />
+        <Route path="/driver/benefits"      element={<DriverRoute><Benefits /></DriverRoute>} />
+        <Route path="/driver/corridor"      element={<DriverRoute><GreenCorridor /></DriverRoute>} />
         <Route path="/driver"               element={<DriverRoute><DriverDashboard /></DriverRoute>} />
+
+        {/* ── Hospital ER ── */}
+        <Route path="/hospital/er" element={<ERDashboard />} />
 
         {/* ── 404 ── */}
         <Route path="*" element={<ComingSoon title="404 — Not Found" />} />

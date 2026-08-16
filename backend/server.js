@@ -21,6 +21,18 @@ const activeTrips     = new Map(); // tripId -> trip object
 const onlineDrivers   = new Map(); // driverId -> { socketId, driverId, driverName, ambulanceId, lat, lon, status }
 const pendingBookings = new Map(); // bookingId -> full booking object
 
+// ── Green Corridor stores ───────────────────────────────
+// corridorId -> { corridorId, bookingId, driverId, routePoints, signals: [{id,lat,lon,state}], active }
+const activeCorridors = new Map();
+
+// ── ER Telemetry stores ─────────────────────────────────
+// bookingId -> { bookingId, patientName, vitals, ecgBuffer, erRoom, lastUpdated }
+const erTelemetry = new Map();
+
+// ── Pre-Alert store ─────────────────────────────────────
+// bookingId -> alert object
+const preAlerts = new Map();
+
 // Haversine distance formula (km)
 function haversineKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return 2.0;
@@ -33,7 +45,88 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Simulate ambulance moving toward patient
+// ── Green Corridor helpers ──────────────────────────────
+// Generate simulated traffic signals along a route
+function generateSignalsAlongRoute(fromLat, fromLon, toLat, toLon, count = 6) {
+  const signals = [];
+  for (let i = 1; i <= count; i++) {
+    const t = i / (count + 1);
+    // Small perpendicular jitter so signals don't sit exactly on centerline
+    const jitterLat = (Math.random() - 0.5) * 0.001;
+    const jitterLon = (Math.random() - 0.5) * 0.001;
+    signals.push({
+      id:    `SIG-${Date.now()}-${i}`,
+      lat:   fromLat + (toLat - fromLon) * t + jitterLat,
+      lon:   fromLon + (toLon - fromLon) * t + jitterLon,
+      state: 'red',        // red | yellow | green
+      distFromStart: t,    // 0..1 normalised position along route
+    });
+  }
+  return signals;
+}
+
+// Check each signal: if ambulance is within GREEN_RADIUS → turn green
+const GREEN_RADIUS_KM = 0.4; // 400 m ahead → green
+const YELLOW_RADIUS_KM = 0.8; // 800 m ahead → yellow
+
+function updateCorridorSignals(corridorId, ambLat, ambLon) {
+  const corridor = activeCorridors.get(corridorId);
+  if (!corridor || !corridor.active) return;
+
+  let changed = false;
+  corridor.signals = corridor.signals.map(sig => {
+    const dist = haversineKm(ambLat, ambLon, sig.lat, sig.lon);
+    let newState = sig.state;
+
+    if (dist <= GREEN_RADIUS_KM) {
+      newState = 'green';
+    } else if (dist <= YELLOW_RADIUS_KM) {
+      newState = 'yellow';
+    } else if (dist > 1.5 && sig.state !== 'red') {
+      // Reset to red once ambulance is far past
+      newState = 'red';
+    }
+
+    if (newState !== sig.state) changed = true;
+    return { ...sig, state: newState };
+  });
+
+  if (changed) {
+    activeCorridors.set(corridorId, corridor);
+    // Broadcast updated signals to all watchers
+    io.to(`corridor:${corridorId}`).emit('corridor:signals_update', {
+      corridorId,
+      signals: corridor.signals,
+      ambLat, ambLon,
+    });
+    io.to('admin_room').emit('corridor:signals_update', {
+      corridorId,
+      signals: corridor.signals,
+      ambLat, ambLon,
+    });
+  }
+}
+
+// ── ECG simulation helper ────────────────────────────────
+function generateECGPoint(situation) {
+  // Simulate realistic ECG amplitude based on patient situation
+  const base = {
+    normal:   { amp: 1.0, noise: 0.05, rate: 1.0 },
+    stable:   { amp: 0.9, noise: 0.08, rate: 0.95 },
+    serious:  { amp: 1.3, noise: 0.15, rate: 1.2 },
+    critical: { amp: 1.6, noise: 0.25, rate: 1.5 },
+  };
+  const cfg = base[situation] || base.normal;
+  const t = Date.now() / 200;
+  // Simple PQRST-like waveform using sin harmonics
+  const ecg =
+    cfg.amp * Math.sin(t * cfg.rate) * 0.3 +
+    cfg.amp * Math.sin(t * cfg.rate * 2.5) * 0.6 +
+    cfg.amp * Math.sin(t * cfg.rate * 0.4) * 0.15 +
+    (Math.random() - 0.5) * cfg.noise;
+  return Math.round(ecg * 100) / 100;
+}
+
 function simulateMovement(tripId) {
   const trip = activeTrips.get(tripId);
   if (!trip || trip.status === 'arrived') return;
@@ -311,6 +404,195 @@ io.on('connection', (socket) => {
     if (cb) cb(activeTrips.get(tripId) || null);
   });
 
+  // ── GREEN CORRIDOR ──────────────────────────────────────
+
+  // Driver activates green corridor for their route
+  socket.on('corridor:activate', ({ bookingId, driverId, fromLat, fromLon, toLat, toLon }) => {
+    if (!bookingId || !driverId) return;
+
+    const corridorId = `COR-${bookingId}`;
+    const signals    = generateSignalsAlongRoute(
+      Number(fromLat), Number(fromLon),
+      Number(toLat),   Number(toLon), 7
+    );
+
+    const corridor = {
+      corridorId,
+      bookingId,
+      driverId:   driverId.toString(),
+      fromLat:    Number(fromLat),
+      fromLon:    Number(fromLon),
+      toLat:      Number(toLat),
+      toLon:      Number(toLon),
+      signals,
+      active:     true,
+      createdAt:  new Date().toISOString(),
+    };
+
+    activeCorridors.set(corridorId, corridor);
+    socket.join(`corridor:${corridorId}`);
+
+    console.log(`Green Corridor activated: ${corridorId} for driver ${driverId}`);
+
+    // Confirm to driver
+    socket.emit('corridor:activated', { corridorId, signals, message: 'Green Corridor is LIVE' });
+
+    // Notify admin
+    io.to('admin_room').emit('corridor:new', corridor);
+  });
+
+  // Join corridor room (admin / observer)
+  socket.on('corridor:join', ({ corridorId }) => {
+    socket.join(`corridor:${corridorId}`);
+    const corridor = activeCorridors.get(corridorId);
+    if (corridor) socket.emit('corridor:state', corridor);
+  });
+
+  // Driver sends live location → update corridor signals
+  socket.on('corridor:location_update', ({ corridorId, lat, lon }) => {
+    updateCorridorSignals(corridorId, Number(lat), Number(lon));
+  });
+
+  // Get all active corridors (admin)
+  socket.on('corridor:list', (cb) => {
+    const list = [...activeCorridors.values()];
+    if (cb) cb(list);
+    else socket.emit('corridor:list_result', list);
+  });
+
+  // Deactivate corridor
+  socket.on('corridor:deactivate', ({ corridorId }) => {
+    const corridor = activeCorridors.get(corridorId);
+    if (corridor) {
+      corridor.active = false;
+      activeCorridors.set(corridorId, corridor);
+      io.to(`corridor:${corridorId}`).emit('corridor:deactivated', { corridorId });
+      io.to('admin_room').emit('corridor:deactivated', { corridorId });
+    }
+  });
+
+  // Hospital ER staff joins the hospital_er room
+  socket.on('hospital:er_join', ({ hospitalName } = {}) => {
+    socket.join('hospital_er');
+    console.log(`Hospital ER joined: ${hospitalName || socket.id}`);
+    // Send any pending pre-alerts
+    const pending = [...preAlerts.values()];
+    if (pending.length > 0) {
+      socket.emit('prealert:pending_list', pending);
+    }
+  });
+
+  // ── ER TELEMETRY ─────────────────────────────────────────
+
+  // Hospital ER joins telemetry room
+  socket.on('er:join', ({ bookingId, hospitalName }) => {
+    if (!bookingId) return;
+    socket.join(`er:${bookingId}`);
+    socket.data.erBookingId = bookingId;
+    console.log(`ER joined telemetry room for booking ${bookingId}`);
+
+    // Send last known telemetry if available
+    const tel = erTelemetry.get(bookingId);
+    if (tel) socket.emit('er:telemetry_snapshot', tel);
+  });
+
+  // Driver pushes vitals to ER
+  socket.on('er:vitals_push', ({ bookingId, vitals, situation, patientName, driverName }) => {
+    if (!bookingId) return;
+
+    const record = {
+      bookingId,
+      patientName:  patientName || '—',
+      driverName:   driverName  || '—',
+      situation:    situation   || 'stable',
+      vitals: {
+        heartRate: vitals?.heartRate || '—',
+        spo2:      vitals?.spo2      || '—',
+        bp:        vitals?.bp        || '—',
+        temp:      vitals?.temp      || '—',
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    erTelemetry.set(bookingId, record);
+
+    console.log(`ER Telemetry pushed for booking ${bookingId}:`, record.vitals);
+
+    // Push to ER room
+    io.to(`er:${bookingId}`).emit('er:vitals_update', record);
+    // Also notify admin
+    io.to('admin_room').emit('er:vitals_update', record);
+  });
+
+  // Driver pushes single ECG data point
+  socket.on('er:ecg_push', ({ bookingId, value, situation }) => {
+    io.to(`er:${bookingId}`).emit('er:ecg_point', {
+      bookingId,
+      value: value ?? generateECGPoint(situation || 'stable'),
+      t: Date.now(),
+    });
+  });
+
+  // Get all ER telemetry records (admin)
+  socket.on('er:list', (cb) => {
+    const list = [...erTelemetry.values()];
+    if (cb) cb(list);
+    else socket.emit('er:list_result', list);
+  });
+
+  // ── PRE-ALERT ─────────────────────────────────────────────
+
+  // Driver sends pre-alert to hospital before arrival
+  socket.on('prealert:send', ({
+    bookingId, driverId, driverName, ambulanceId,
+    hospitalName, hospitalPhone,
+    patientName, emergencyType, condition,
+    eta, distanceKm, vitals, notes, sentAt,
+  }) => {
+    if (!bookingId) return;
+
+    const alert = {
+      bookingId,
+      driverId:     driverId     || '—',
+      driverName:   driverName   || '—',
+      ambulanceId:  ambulanceId  || '—',
+      hospitalName: hospitalName || '—',
+      hospitalPhone: hospitalPhone || null,
+      patientName:  patientName  || '—',
+      emergencyType: emergencyType || '—',
+      condition:    condition    || 'stable',
+      eta:          eta          || null,
+      distanceKm:   distanceKm   || null,
+      vitals:       vitals       || {},
+      notes:        notes        || '',
+      sentAt:       sentAt       || new Date().toISOString(),
+    };
+
+    console.log(`Pre-Alert received for booking ${bookingId} → hospital: ${hospitalName}`);
+
+    // Store in memory
+    preAlerts.set(bookingId, alert);
+
+    // Notify admin dashboard
+    io.to('admin_room').emit('prealert:incoming', alert);
+
+    // Notify hospital ER room (if they are connected)
+    io.to('hospital_er').emit('prealert:incoming', alert);
+
+    // Echo confirmation back to driver
+    socket.emit('prealert:confirmed', {
+      bookingId,
+      message: `Pre-alert sent to ${hospitalName}`,
+      sentAt:  alert.sentAt,
+    });
+  });
+
+  // ── ADMIN room join ───────────────────────────────────────
+  socket.on('admin:join', () => {
+    socket.join('admin_room');
+    console.log(`Admin joined admin_room: ${socket.id}`);
+  });
+
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
   });
@@ -321,6 +603,9 @@ app.set('io', io);
 app.set('activeTrips', activeTrips);
 app.set('onlineDrivers', onlineDrivers);
 app.set('pendingBookings', pendingBookings);
+app.set('activeCorridors', activeCorridors);
+app.set('erTelemetry', erTelemetry);
+app.set('preAlerts', preAlerts);
 
 // Express Middleware
 app.use(cors({

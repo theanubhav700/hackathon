@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 const navItems = [
   { icon: '📊', label: 'Dashboard',            path: '/admin/dashboard' },
-  { icon: '🚨', label: 'Active Emergencies',   path: '/admin/emergencies' },
+  { icon: '🚨', label: 'All Requests',          path: '/admin/emergencies' },
   { icon: '🚑', label: 'Ambulance Mgmt',       path: '/admin/ambulances' },
   { icon: '👨‍✈️', label: 'Driver Mgmt',          path: '/admin/drivers' },
   { icon: '👤', label: 'Customer Mgmt',        path: '/admin/customers' },

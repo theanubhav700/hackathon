@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import {
@@ -16,44 +16,22 @@ const SOCKET_URL = import.meta.env.VITE_API_URL
 
 const ORS_KEY = import.meta.env.VITE_ORS_KEY;
 
-// ── Custom map icons ──────────────────────────────────────
-const ambulanceIcon = new L.DivIcon({
-  html: `
-    <div style="
-      background:linear-gradient(135deg,#ff8800,#cc5500);
-      border:3px solid #fff;border-radius:50%;
-      width:44px;height:44px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:22px;
-      box-shadow:0 0 22px rgba(255,136,0,1),0 0 6px rgba(0,0,0,0.5);
-    ">🚑</div>
-    <div style="
-      position:absolute;top:-6px;left:50%;transform:translateX(-50%);
-      background:#ff8800;color:#fff;font-size:9px;font-weight:900;
-      padding:2px 6px;border-radius:8px;white-space:nowrap;
-      box-shadow:0 2px 8px rgba(255,136,0,0.6);
-    ">YOU</div>`,
-  className: '', iconSize: [44, 44], iconAnchor: [22, 22],
-});
-
-const patientIcon = new L.DivIcon({
-  html: `
-    <div style="
-      background:linear-gradient(135deg,#ff3333,#cc0000);
-      border:3px solid #fff;border-radius:50%;
-      width:44px;height:44px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:22px;
-      box-shadow:0 0 22px rgba(255,51,51,1),0 0 6px rgba(0,0,0,0.5);
-    ">🆘</div>
-    <div style="
-      position:absolute;top:-6px;left:50%;transform:translateX(-50%);
-      background:#ff3333;color:#fff;font-size:9px;font-weight:900;
-      padding:2px 6px;border-radius:8px;white-space:nowrap;
-      box-shadow:0 2px 8px rgba(255,51,51,0.6);
-    ">PATIENT</div>`,
-  className: '', iconSize: [44, 44], iconAnchor: [22, 44],
-});
+// ── Custom map icons (lazy — avoid top-level L instantiation) ─
+function makeNavIcons() {
+  const ambulanceIcon = new L.DivIcon({
+    html: `
+      <div style="background:linear-gradient(135deg,#ff8800,#cc5500);border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 22px rgba(255,136,0,1),0 0 6px rgba(0,0,0,0.5);">🚑</div>
+      <div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);background:#ff8800;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 8px rgba(255,136,0,0.6);">YOU</div>`,
+    className: '', iconSize: [44, 44], iconAnchor: [22, 22],
+  });
+  const patientIcon = new L.DivIcon({
+    html: `
+      <div style="background:linear-gradient(135deg,#ff3333,#cc0000);border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 22px rgba(255,51,51,1),0 0 6px rgba(0,0,0,0.5);">🆘</div>
+      <div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);background:#ff3333;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 8px rgba(255,51,51,0.6);">PATIENT</div>`,
+    className: '', iconSize: [44, 44], iconAnchor: [22, 44],
+  });
+  return { ambulanceIcon, patientIcon };
+}
 
 // ── Fit map to both points ─────────────────────────────────
 function FitBounds({ driverPos, customerPos }) {
@@ -127,6 +105,8 @@ export default function PickupNavigation() {
   const navigate = useNavigate();
   const driver   = JSON.parse(localStorage.getItem('resq_user') || '{}');
   const booking  = JSON.parse(localStorage.getItem('resq_active_booking') || 'null');
+
+  const { ambulanceIcon, patientIcon } = useMemo(() => makeNavIcons(), []);
 
   const [driverPos, setDriverPos]       = useState(null);
   const [customerPos, setCustomerPos]   = useState(null);
@@ -271,10 +251,18 @@ export default function PickupNavigation() {
           >
             <ZoomControl position="bottomright" />
 
-            {/* OpenStreetMap tiles */}
+            {/* Satellite tiles (Esri World Imagery) */}
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+            />
+            {/* Road labels overlay on top of satellite */}
+            <TileLayer
+              attribution=""
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+              opacity={0.6}
             />
 
             {/* Driver marker */}

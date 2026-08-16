@@ -26,17 +26,15 @@ const EMERGENCY_COLORS = {
 
 const navItems = [
   { icon: '📊', label: 'Dashboard',          path: '/driver/dashboard' },
-  { icon: '📍', label: 'Pickup Navigation',  path: '/driver/navigation' },
   { icon: '👤', label: 'Patient Info',       path: '/driver/patient' },
   { icon: '✅', label: 'Patient Received',   path: '/driver/received' },
-  { icon: '❤️', label: 'Patient Telemetry',  path: '/driver/telemetry' },
+  { icon: '❤️', label: 'Patient Report',    path: '/driver/telemetry' },
   { icon: '🏥', label: 'Hospital Info',      path: '/driver/hospital' },
-  { icon: '🔔', label: 'Pre-Alert',          path: '/driver/prealert' },
   { icon: '🗺️', label: 'Live Journey',       path: '/driver/journey' },
-  { icon: '🛣️', label: 'Route Management',   path: '/driver/routes' },
-  { icon: '🚦', label: 'Traffic & Alerts',   path: '/driver/traffic' },
+  { icon: '🔔', label: 'Pre-Alert',          path: '/driver/prealert' },
   { icon: '🏁', label: 'Complete Trip',      path: '/driver/complete' },
   { icon: '📋', label: 'Trip History',       path: '/driver/history' },
+  { icon: '🎁', label: 'Benefits',           path: '/driver/benefits' },
 ];
 
 function playAlertSound() {
@@ -64,9 +62,17 @@ export default function DriverLayout({ children }) {
     try { return JSON.parse(localStorage.getItem('resq_driver_notifications') || '[]'); } catch { return []; }
   });
   const [accepting, setAccepting] = useState(null);
-  const acceptedRef = useRef(false); // prevents any re-click across renders
   const notifRef = useRef(null);
   const socketRef = useRef(null);
+
+  // Set of booking IDs already actioned — persisted so page reloads don't re-trigger
+  const actionedIdsRef = useRef(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('resq_actioned_bookings') || '[]')); } catch { return new Set(); }
+  });
+  // Initialise the ref value (the factory above only runs once)
+  if (typeof actionedIdsRef.current === 'function') {
+    actionedIdsRef.current = actionedIdsRef.current();
+  }
 
   const driver = JSON.parse(localStorage.getItem('resq_user') || '{}');
 
@@ -100,6 +106,14 @@ export default function DriverLayout({ children }) {
     // INCOMING BOOKING REQUEST (EMERGENCY NOTIFICATION)
     socket.on('booking:request', (data) => {
       console.log('DriverLayout received booking:request:', data);
+
+      // If this booking was already accepted or rejected, silently ignore it
+      // (server replays pending bookings on reconnect — we don't want repeat popups)
+      if (actionedIdsRef.current.has(data.bookingId)) {
+        console.log('Ignoring already-actioned booking:', data.bookingId);
+        return;
+      }
+
       playAlertSound();
 
       const label = EMERGENCY_LABELS[data.emergencyType] || data.emergencyType || 'Emergency';
@@ -127,13 +141,15 @@ export default function DriverLayout({ children }) {
       };
 
       setNotifications(prev => {
-        const filtered = prev.filter(n => n.id !== data.bookingId);
-        const updated = [notif, ...filtered];
+        // If we already have this notif (any status), don't add again
+        const existing = prev.find(n => n.id === data.bookingId);
+        if (existing) return prev;
+        const updated = [notif, ...prev];
         localStorage.setItem('resq_driver_notifications', JSON.stringify(updated));
         return updated;
       });
 
-      // Open notification dropdown & alert
+      // Open notification dropdown only for a fresh pending request
       setNotifOpen(true);
       window.dispatchEvent(new CustomEvent('resq_new_notification', { detail: notif }));
     });
@@ -158,8 +174,8 @@ export default function DriverLayout({ children }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleAccept = (n) => {
-    if (acceptedRef.current) return; // hard block — ref persists across renders
-    acceptedRef.current = true;
+    // Block if this booking was already actioned
+    if (actionedIdsRef.current.has(n.id)) return;
     setAccepting(n.id);
     const bookingData = n.data || n;
 
@@ -204,14 +220,35 @@ export default function DriverLayout({ children }) {
     const history = JSON.parse(localStorage.getItem('resq_patient_history') || '[]');
     localStorage.setItem('resq_patient_history', JSON.stringify([patientRecord, ...history].slice(0, 20)));
 
+    // Mark this booking as actioned so future socket replays are ignored
+    actionedIdsRef.current.add(n.id);
+    localStorage.setItem('resq_actioned_bookings',
+      JSON.stringify([...actionedIdsRef.current].slice(-50)) // keep last 50
+    );
+
+    // Save activity log entry for admin
+    const activityLog = {
+      logId:        `LOG-${Date.now()}`,
+      type:         'Booking',
+      bookingId:    bookingData.bookingId || n.id,
+      driverName:   driver.fullName || driver.name || 'Driver',
+      ambulanceId:  driver.assignedAmbulance?.vehicleId || 'AMB-01',
+      customerName: n.customerName || '—',
+      acceptTime:   new Date().toISOString(),
+      description:  `Driver ${driver.fullName || 'Driver'} accepted booking ${bookingData.bookingId || n.id} for ${n.customerName || 'Patient'}`,
+    };
+    const existingLogs = JSON.parse(localStorage.getItem('resq_activity_logs') || '[]');
+    localStorage.setItem('resq_activity_logs', JSON.stringify([activityLog, ...existingLogs]));
+
     setNotifications(prev => {
       const updated = prev.map(item => item.id === n.id ? { ...item, status: 'accepted', read: true } : item);
       localStorage.setItem('resq_driver_notifications', JSON.stringify(updated));
       return updated;
     });
 
+    setAccepting(null);
     setNotifOpen(false);
-    navigate('/driver/navigation');
+    // ✅ No redirect — patient info already saved above, driver stays on current page
   };
 
   const handleReject = (n) => {
@@ -221,6 +258,13 @@ export default function DriverLayout({ children }) {
         driverId:  driver._id,
       });
     }
+
+    // Mark as actioned so it doesn't pop up again on reconnect
+    actionedIdsRef.current.add(n.id);
+    localStorage.setItem('resq_actioned_bookings',
+      JSON.stringify([...actionedIdsRef.current].slice(-50))
+    );
+
     setNotifications(prev => {
       const updated = prev.map(item => item.id === n.id ? { ...item, status: 'rejected', read: true } : item);
       localStorage.setItem('resq_driver_notifications', JSON.stringify(updated));
@@ -440,7 +484,7 @@ export default function DriverLayout({ children }) {
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => handleReject(n)} style={{ flex: 1, padding: '9px', borderRadius: 9, cursor: 'pointer', background: 'rgba(255,60,60,0.1)', border: '1px solid rgba(255,60,60,0.3)', color: '#ff5555', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>✕ Reject</button>
                           <button onClick={() => handleAccept(n)} disabled={accepting === n.id} style={{ flex: 2, padding: '9px', borderRadius: 9, cursor: accepting ? 'not-allowed' : 'pointer', background: accepting === n.id ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#00cc66,#009944)', border: 'none', color: '#fff', fontWeight: 800, fontSize: 13, fontFamily: 'inherit', boxShadow: accepting === n.id ? 'none' : '0 4px 14px rgba(0,204,102,0.35)' }}>
-                            {accepting === n.id ? '⏳ Accepting...' : '✓ Accept & Navigate'}
+                            {accepting === n.id ? '⏳ Accepting...' : '✓ Accept'}
                           </button>
                         </div>
                       )}
